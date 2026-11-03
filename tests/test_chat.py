@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -229,6 +230,8 @@ class _ScriptedClient:
 
 
 def test_prune_drops_the_invented_sentence_without_a_retry() -> None:
+    if not Path("content/about-ben.md").is_file():
+        pytest.skip("content/about-ben.md not present")
     draft = (
         "I was Director of Engineering at Mindsize from June 2019 to September 2026. "
         "I've got a sweet spot for my bees. "
@@ -251,6 +254,8 @@ def test_prune_drops_the_invented_sentence_without_a_retry() -> None:
 
 
 def test_short_prune_retries_once_then_can_fall_back() -> None:
+    if not Path("content/about-ben.md").is_file():
+        pytest.skip("content/about-ben.md not present")
     bad = "I've got a sweet spot for my bees."
     kept = (
         "I was Director of Engineering at Mindsize from June 2019 to September 2026. "
