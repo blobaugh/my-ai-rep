@@ -110,6 +110,8 @@ python web/dev/mock_api.py
 
 Open `http://127.0.0.1:8765/` and `http://127.0.0.1:8765/embed`. Magic messages such as `!full` and `!down` show the error states. See `docs/decisions/020-plain-chat-ui.md`.
 
+The embeddable bubble is `web/widget.js`. Install notes are in `docs/web/embedding.md`.
+
 ## Tests
 
 ```bash

@@ -1,0 +1,35 @@
+# Web container. BENBOT-24 supplies the image. Render with web/dev/render_nginx.py.
+# A proxy in front must not drop or duplicate Content-Security-Policy (BENBOT-29).
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    gzip on;
+    gzip_types text/css application/javascript text/javascript;
+
+    location = / {
+        add_header Content-Security-Policy "frame-ancestors 'none'" always;
+        try_files /index.html =404;
+    }
+
+    location = /embed {
+        add_header Content-Security-Policy "frame-ancestors ${FRAME_ANCESTORS}" always;
+        try_files /embed.html =404;
+    }
+
+    location = /widget.js {
+        add_header Cache-Control "public, max-age=300" always;
+        add_header Content-Security-Policy "frame-ancestors 'none'" always;
+        try_files /widget.js =404;
+    }
+
+    location /api/ {
+        proxy_pass http://api:8000;
+    }
+
+    location / {
+        add_header Content-Security-Policy "frame-ancestors 'none'" always;
+        try_files $uri =404;
+    }
+}

@@ -16,6 +16,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
@@ -90,6 +91,7 @@ class Settings:
     ai_label: str = ""
     opening_message: str = ""
     logging_notice: str = ""
+    frame_ancestors: tuple[str, ...] = ()
 
     def to_embed_config(self) -> EmbedConfig:
         return EmbedConfig(
@@ -167,6 +169,7 @@ class Settings:
             "AI_LABEL": self.ai_label or "unset",
             "OPENING_MESSAGE": self.opening_message or "unset",
             "LOGGING_NOTICE": self.logging_notice or "unset",
+            "FRAME_ANCESTORS": " ".join(self.frame_ancestors) or "unset",
             "BOT_NAME": self.bot_name,
             "HUMAN_NAME": self.human_name,
             "TOPIC_LEAK_WORDS": ",".join(self.topic_leak_words),
@@ -177,6 +180,7 @@ class Settings:
         data = {field.name: getattr(self, field.name) for field in fields(self)}
         data["topic_leak_words"] = list(data["topic_leak_words"])
         data["failover_on_http_status"] = list(data["failover_on_http_status"])
+        data["frame_ancestors"] = list(data["frame_ancestors"])
         return data
 
 
@@ -400,6 +404,7 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
         ai_label=_str(data, "AI_LABEL", ""),
         opening_message=_str(data, "OPENING_MESSAGE", ""),
         logging_notice=_str(data, "LOGGING_NOTICE", ""),
+        frame_ancestors=_frame_ancestors(data),
     )
 
 
@@ -407,6 +412,36 @@ def _str(data: Mapping[str, str], name: str, default: str) -> str:
     if name not in data or str(data[name]).strip() == "":
         return default
     return str(data[name]).strip()
+
+
+def _frame_ancestors(data: Mapping[str, str]) -> tuple[str, ...]:
+    """Origins allowed to frame /embed. Blank uses web/frame_ancestors.default."""
+    raw = _str(data, "FRAME_ANCESTORS", "")
+    parts = raw.split() if raw else _default_ancestors()
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        if part == "*":
+            raise ValueError("FRAME_ANCESTORS must list origins and must not be '*'")
+        parsed = urlsplit(part)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError(f"FRAME_ANCESTORS entry is not an origin: {part}")
+        if parsed.path not in {"", "/"} or parsed.query or parsed.fragment or parsed.username:
+            raise ValueError(f"FRAME_ANCESTORS entry is not an origin: {part}")
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        if origin not in seen:
+            seen.add(origin)
+            cleaned.append(origin)
+    return tuple(cleaned)
+
+
+def _default_ancestors() -> list[str]:
+    path = _ROOT / "web" / "frame_ancestors.default"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    return [line.split("#", 1)[0].strip() for line in text.splitlines() if line.split("#", 1)[0].strip()]
 
 
 def _origins(data: Mapping[str, str]) -> tuple[str, ...]:

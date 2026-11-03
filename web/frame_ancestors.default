@@ -1,0 +1,4 @@
+# Origins allowed to frame /embed. One origin per line. Blank FRAME_ANCESTORS uses this file.
+https://benlobaugh.com
+https://www.benlobaugh.com
+https://ben.lobaugh.net
