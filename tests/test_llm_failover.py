@@ -292,34 +292,59 @@ def test_single_connection_has_no_secondary() -> None:
     assert primary.completions.calls == 1
 
 
-def test_http_status_does_not_fail_over_unless_listed() -> None:
-    clock = _Clock()
-    primary = _Client(lambda _call: _Status(500))
+def _pair(clock: _Clock, code: int) -> tuple[_Client, _Client, LlmPool]:
+    primary = _Client(lambda _call: _Status(code))
     secondary = _Client(lambda _call: "from-secondary")
     settings = _settings(
         LLM_SECONDARY_BASE_URL="http://secondary.invalid/v1",
         LLM_SECONDARY_API_KEY="secondary-secret",
         LLM_SECONDARY_MODEL="secondary-model",
     )
-    pool = _pool(settings, primary, secondary, clock)
+    return primary, secondary, _pool(settings, primary, secondary, clock)
+
+
+def test_429_and_5xx_fail_over_immediately() -> None:
+    for code in (429, 500, 599):
+        clock = _Clock()
+        primary, secondary, pool = _pair(clock, code)
+        _value, used, active = _run(pool)
+        assert used == "secondary"
+        assert active is True
+        assert primary.completions.calls == 1
+        assert secondary.completions.calls == 1
+
+
+def test_other_client_errors_stay_on_the_same_connection() -> None:
+    clock = _Clock()
+    primary, secondary, pool = _pair(clock, 400)
+    with pytest.raises(_Status):
+        _run(pool)
+    assert primary.completions.calls == 1
+    assert secondary.completions.calls == 0
+
+
+def test_408_retries_on_the_same_host_unless_listed() -> None:
+    clock = _Clock()
+    primary, secondary, pool = _pair(clock, 408)
     with pytest.raises(_Status):
         _run(pool)
     assert primary.completions.calls == 3
     assert secondary.completions.calls == 0
 
     listed = _settings(
-        FAILOVER_ON_HTTP_STATUS="500, 502",
+        FAILOVER_ON_HTTP_STATUS="408",
         LLM_SECONDARY_BASE_URL="http://secondary.invalid/v1",
         LLM_SECONDARY_API_KEY="secondary-secret",
         LLM_SECONDARY_MODEL="secondary-model",
     )
-    assert listed.failover_on_http_status == (500, 502)
-    primary = _Client(lambda _call: _Status(500))
+    assert listed.failover_on_http_status == (408,)
+    primary = _Client(lambda _call: _Status(408))
     secondary = _Client(lambda _call: "from-secondary")
     pool = _pool(listed, primary, secondary, clock)
     _value, used, active = _run(pool)
     assert used == "secondary"
     assert active is True
+    assert primary.completions.calls == 1
 
 
 def test_matching_secondary_warns(caplog: pytest.LogCaptureFixture) -> None:

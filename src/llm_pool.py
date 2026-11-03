@@ -21,7 +21,9 @@ from src.config import Settings
 logger = logging.getLogger(__name__)
 
 # Same-connection retries for a response that came back. Not used as failover.
-_SAME_HOST_STATUS = frozenset({408, 429, 500, 502, 503, 504})
+# 408 is a late response from a live host, so it stays on that host.
+# 429 and every 5xx fail over instead of retrying here.
+_SAME_HOST_STATUS = frozenset({408})
 
 
 def _status_retryable(exc: BaseException) -> bool:
@@ -206,7 +208,10 @@ def chat_timeout(timeout_seconds: float) -> httpx.Timeout:
 
 
 def failover_trigger(exc: BaseException, statuses: tuple[int, ...]) -> bool:
-    """Connection failures and timeouts fail over. Other HTTP errors do not, unless listed."""
+    """Connection failures, timeouts, HTTP 429, and any 5xx fail over.
+
+    Other HTTP statuses stay on the host that returned them, unless listed.
+    """
     if isinstance(exc, _NoFailover):
         return False
     if isinstance(
@@ -215,7 +220,11 @@ def failover_trigger(exc: BaseException, statuses: tuple[int, ...]) -> bool:
     ):
         return True
     status = getattr(exc, "status_code", None)
-    return isinstance(status, int) and status in statuses
+    if not isinstance(status, int):
+        return False
+    if status == 429 or 500 <= status <= 599:
+        return True
+    return status in statuses
 
 
 def _same_connection(settings: Settings) -> bool:

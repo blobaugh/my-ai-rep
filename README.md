@@ -83,9 +83,9 @@ Chat, retrieval, indexing, and evals all read settings from `src/config.py` (the
 | LLM_SECONDARY_BASE_URL, LLM_SECONDARY_API_KEY, LLM_SECONDARY_MODEL | unset | optional backup connection; set all three or none |
 | LLM_SECONDARY_TIMEOUT_SECONDS | 120 | total time for one secondary call |
 | FAILOVER_RETRY_SECONDS | 300 | how long to stay on the secondary before trying the primary once |
-| FAILOVER_ON_HTTP_STATUS | unset | extra HTTP statuses that fail over; empty means none |
+| FAILOVER_ON_HTTP_STATUS | unset | extra HTTP statuses that fail over. 429 and every 5xx already fail over |
 
-A blank value means unset. The connect timeout is 5 seconds and is not a setting. Failover runs on a connection failure or a timeout. Other HTTP errors stay on the connection that returned them unless their status is listed. The embedder does not fail over. See `docs/decisions/016-llm-failover.md`.
+A blank value means unset. The connect timeout is 5 seconds and is not a setting. Failover runs on a connection failure, a timeout, HTTP 429, or any 5xx. Other HTTP errors stay on the connection that returned them unless their status is listed. The embedder does not fail over. See `docs/decisions/016-llm-failover.md`.
 
 `CONTEXT_BUDGET_TOKENS` (default 7000) keeps each request under the measured window (history drops first, then lowest-ranked chunks).
 
