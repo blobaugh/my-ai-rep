@@ -112,6 +112,16 @@ Open `http://127.0.0.1:8765/` and `http://127.0.0.1:8765/embed`. Magic messages 
 
 The embeddable bubble is `web/widget.js`. Install notes are in `docs/web/embedding.md`.
 
+## Docker
+
+Production layout is `docker-compose.yml` (pull-only, `linux/amd64`, no published ports). Local dev:
+
+```bash
+scripts/dev-up.sh
+```
+
+Then open http://127.0.0.1:8080/ . See `docs/web/containers.md`. Build amd64 images with `docker buildx build --platform linux/amd64`.
+
 ## Tests
 
 ```bash

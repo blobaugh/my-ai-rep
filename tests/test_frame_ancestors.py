@@ -40,7 +40,10 @@ def test_template_pins_embed_and_locks_the_full_page() -> None:
     assert "frame-ancestors https://example.com https://www.example.com" in rendered
     assert "frame-ancestors 'none'" in rendered
     assert "max-age=300" in rendered
-    assert "${" not in rendered
+    assert "__" not in rendered
+    assert "location /api/" not in rendered
+    dev = render_nginx(TEMPLATE, ("https://example.com",), dev_proxy_api=True)
+    assert "location /api/" in dev
 
 
 def test_empty_list_is_refused() -> None:

@@ -92,6 +92,8 @@ class Settings:
     opening_message: str = ""
     logging_notice: str = ""
     frame_ancestors: tuple[str, ...] = ()
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
 
     def to_embed_config(self) -> EmbedConfig:
         return EmbedConfig(
@@ -170,6 +172,8 @@ class Settings:
             "OPENING_MESSAGE": self.opening_message or "unset",
             "LOGGING_NOTICE": self.logging_notice or "unset",
             "FRAME_ANCESTORS": " ".join(self.frame_ancestors) or "unset",
+            "API_HOST": self.api_host,
+            "API_PORT": self.api_port,
             "BOT_NAME": self.bot_name,
             "HUMAN_NAME": self.human_name,
             "TOPIC_LEAK_WORDS": ",".join(self.topic_leak_words),
@@ -405,6 +409,8 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
         opening_message=_str(data, "OPENING_MESSAGE", ""),
         logging_notice=_str(data, "LOGGING_NOTICE", ""),
         frame_ancestors=_frame_ancestors(data),
+        api_host=_str(data, "API_HOST", "127.0.0.1"),
+        api_port=_int(data, "API_PORT", 8000, minimum=1),
     )
 
 

@@ -1,0 +1,28 @@
+# Deny by default. Only paths needed for image builds are re-included.
+**
+
+!.dockerignore
+!src
+!src/**
+!prompts
+!prompts/**
+!web
+!web/**
+!docker
+!docker/**
+
+# Never send private or local-only trees, even if a path above would match.
+content/**
+data/**
+.env
+.env.*
+!.env.example
+tests/**
+eval/**
+examples/**
+.git/**
+.cursor/**
+docs/**
+scripts/**
+*.sqlite
+*.sqlite-*

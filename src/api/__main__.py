@@ -47,7 +47,7 @@ def main() -> int:
         max_messages=settings.session_max_messages,
     )
     app = create_app(settings=settings, store=store)
-    uvicorn.run(app, host="127.0.0.1", port=8000, workers=1)
+    uvicorn.run(app, host=settings.api_host, port=settings.api_port, workers=1)
     return 0
 
 

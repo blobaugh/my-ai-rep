@@ -1,0 +1,95 @@
+name: benbot
+
+# Production: pull images only. Build linux/amd64 images in CI (BENBOT-30).
+# docker buildx build --platform linux/amd64 -f docker/api/Dockerfile -t "$BENBOT_IMAGE_PREFIX/api:$BENBOT_TAG" .
+
+services:
+  api:
+    container_name: benbot_api
+    image: ${BENBOT_IMAGE_PREFIX:-benbot}/api:${BENBOT_TAG:-latest}
+    platform: linux/amd64
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      CONTENT_DIR: /content
+      DB_PATH: /data/benbot.sqlite
+      EMBED_BASE_URL: http://embedder:11434/v1
+    volumes:
+      - ${BENBOT_HOME:-.}/data:/data
+      - ${BENBOT_HOME:-.}/content:/content:ro
+    networks:
+      - proxy
+      - internal
+    depends_on:
+      embedder:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web:
+    container_name: benbot_web
+    image: ${BENBOT_IMAGE_PREFIX:-benbot}/web:${BENBOT_TAG:-latest}
+    platform: linux/amd64
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DEV_PROXY_API: "0"
+    networks:
+      - proxy
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+      - /etc/nginx/conf.d
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  embedder:
+    container_name: benbot_embedder
+    image: ${BENBOT_IMAGE_PREFIX:-benbot}/embedder:${BENBOT_TAG:-latest}
+    platform: linux/amd64
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - internal
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-proxy}
+  internal:
+    internal: true
+
+volumes:
+  ollama_models:
