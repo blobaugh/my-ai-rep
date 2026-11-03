@@ -86,6 +86,9 @@ class Settings:
     session_idle_minutes: int = 60
     session_max_messages: int = 50
     message_max_chars: int = 1000
+    max_concurrent_turns: int = 2
+    daily_message_cap: int = 300
+    busy_wait_seconds: float = 3.0
     cors_allowed_origins: tuple[str, ...] = ()
     contact_url: str = ""
     ai_label: str = ""
@@ -176,6 +179,9 @@ class Settings:
             "SESSION_IDLE_MINUTES": self.session_idle_minutes,
             "SESSION_MAX_MESSAGES": self.session_max_messages,
             "MESSAGE_MAX_CHARS": self.message_max_chars,
+            "MAX_CONCURRENT_TURNS": self.max_concurrent_turns,
+            "DAILY_MESSAGE_CAP": self.daily_message_cap,
+            "BUSY_WAIT_SECONDS": self.busy_wait_seconds,
             "CORS_ALLOWED_ORIGINS": ",".join(self.cors_allowed_origins) or "unset",
             "CONTACT_URL": self.contact_url or "unset",
             "AI_LABEL": self.ai_label or "unset",
@@ -423,6 +429,9 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
         session_idle_minutes=_int(data, "SESSION_IDLE_MINUTES", 60, minimum=0),
         session_max_messages=_int(data, "SESSION_MAX_MESSAGES", 50, minimum=1),
         message_max_chars=_int(data, "MESSAGE_MAX_CHARS", 1000, minimum=1),
+        max_concurrent_turns=_int(data, "MAX_CONCURRENT_TURNS", 2, minimum=0),
+        daily_message_cap=_int(data, "DAILY_MESSAGE_CAP", 300, minimum=0),
+        busy_wait_seconds=_float(data, "BUSY_WAIT_SECONDS", 3.0, minimum=0.0),
         cors_allowed_origins=_origins(data),
         contact_url=_str(data, "CONTACT_URL", ""),
         ai_label=_str(data, "AI_LABEL", ""),

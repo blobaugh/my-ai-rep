@@ -15,8 +15,19 @@ BAD_REQUEST = "That request could not be read."
 SESSION_FULL = "This chat is full. Start a new chat to keep going."
 UNAVAILABLE = "The model is not available right now. Please try again in a moment."
 ERROR_TEXT = "Something went wrong. Please try again in a moment."
-BUSY = "BenBot is busy right now. Please try again in a moment."
-DAILY_LIMIT = "BenBot has reached today's message limit. Please try again tomorrow."
+BUSY = "I'm busy right now. Please try again in a moment."
+
+
+def daily_limit_message(settings: Settings) -> str:
+    contact = settings.contact_url.strip()
+    if contact:
+        return (
+            "I've reached today's message limit. "
+            f"Please reach out to Ben directly: {contact}"
+        )
+    return (
+        "I've reached today's message limit. Please try again tomorrow."
+    )
 
 
 def public_config(settings: Settings) -> dict[str, object]:

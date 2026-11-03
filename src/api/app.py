@@ -18,17 +18,17 @@ from starlette.concurrency import run_in_threadpool
 from src.api.copy import (
     BAD_REQUEST,
     BUSY,
-    DAILY_LIMIT,
     EMPTY_MESSAGE,
     ERROR_TEXT,
     SESSION_FULL,
     TOO_LARGE,
     TOO_LONG,
     UNAVAILABLE,
+    daily_limit_message,
     public_config,
     strip_controls,
 )
-from src.api.limits import admission
+from src.api.limits import TurnSlots
 from src.config import Settings
 from src.embeddings import EmbeddingError
 from src.health import INDEX_DIR
@@ -51,6 +51,7 @@ def create_app(
     """Build the app. Tests pass a fake ``answer_fn`` and a temp store."""
     complete = answer_fn or answer_turn
     ready = index_ok or _index_files_ok
+    slots = TurnSlots(settings)
     app = FastAPI(title="BenBot", docs_url=None, redoc_url=None, openapi_url=None)
     if settings.cors_allowed_origins:
         app.add_middleware(
@@ -63,7 +64,10 @@ def create_app(
     @app.middleware("http")
     async def request_id(request: Request, call_next):  # type: ignore[no-untyped-def]
         request.state.request_id = uuid.uuid4().hex
-        return await call_next(request)
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        return response
 
     @app.exception_handler(Exception)
     async def unhandled(request: Request, exc: Exception) -> JSONResponse:
@@ -92,6 +96,9 @@ def create_app(
     @app.post("/api/chat")
     async def post_chat(request: Request) -> JSONResponse:
         request_id = str(getattr(request.state, "request_id", ""))
+        content_type = request.headers.get("content-type", "")
+        if not content_type.lower().startswith("application/json"):
+            return _logged(request_id, "invalid", 400, BAD_REQUEST, None, None)
         limit = _body_limit(settings)
         advertised = request.headers.get("content-length", "")
         if advertised.isdigit() and int(advertised) > limit:
@@ -110,97 +117,117 @@ def create_app(
             return _logged(request_id, "invalid", 400, EMPTY_MESSAGE, None, None)
         if len(cleaned) > settings.message_max_chars:
             return _logged(request_id, "invalid", 400, TOO_LONG, None, None)
-        gate = admission(settings, store)
-        if gate == "busy":
-            return _logged(request_id, "busy", 429, BUSY, None, None)
+        gate = slots.admission(store)
         if gate == "daily_limit":
-            return _logged(request_id, "daily_limit", 429, DAILY_LIMIT, None, None)
-
-        supplied = payload.get("session_id")
-        client_id = supplied if isinstance(supplied, str) else None
-        resolution = store.resolve_session(client_id)
-        session_id = resolution.session_id
-        if resolution.state == "full":
-            store.begin_turn(session_id, cleaned, full_reply=SESSION_FULL)
-            used = store.message_count(session_id)
-            return _logged(
+            return _chat_response(
                 request_id,
-                "session_full",
-                409,
-                SESSION_FULL,
-                session_id,
-                _usage(used, settings.session_max_messages),
+                "daily_limit",
+                429,
+                daily_limit_message(settings),
+                None,
+                None,
             )
+        if not slots.acquire():
+            return _chat_response(request_id, "busy", 429, BUSY, None, None)
 
-        history = store.history(session_id, settings.history_turns)
-        pending = store.begin_turn(session_id, cleaned)
         try:
-            answer = await run_in_threadpool(
-                lambda: complete(cleaned, history, settings)
-            )
-        except ModelUnavailable:
-            store.finish_turn(
-                session_id,
-                pending.sequence,
-                reply=UNAVAILABLE,
-                status="unavailable",
-                category="unavailable",
-            )
-            used = store.message_count(session_id)
-            return _logged(
-                request_id,
-                "unavailable",
-                503,
-                UNAVAILABLE,
-                session_id,
-                _usage(used, settings.session_max_messages),
-            )
-        except (APIConnectionError, APITimeoutError, EmbeddingError, OSError):
-            store.finish_turn(
-                session_id,
-                pending.sequence,
-                reply=UNAVAILABLE,
-                status="unavailable",
-                category="unavailable",
-            )
-            used = store.message_count(session_id)
-            return _logged(
-                request_id,
-                "unavailable",
-                503,
-                UNAVAILABLE,
-                session_id,
-                _usage(used, settings.session_max_messages),
-            )
-        except Exception:  # noqa: BLE001
-            logger.error("%s", _log_line(request_id, "error", 500))
-            store.finish_turn(
-                session_id,
-                pending.sequence,
-                reply=ERROR_TEXT,
-                status="error",
-                category="error",
-            )
-            used = store.message_count(session_id)
-            return _logged(
-                request_id,
-                "error",
-                500,
-                ERROR_TEXT,
-                session_id,
-                _usage(used, settings.session_max_messages),
-            )
+            supplied = payload.get("session_id")
+            client_id = supplied if isinstance(supplied, str) else None
+            resolution = store.resolve_session(client_id)
+            session_id = resolution.session_id
+            if resolution.state == "full":
+                store.begin_turn(session_id, cleaned, full_reply=SESSION_FULL)
+                used = store.message_count(session_id)
+                return _chat_response(
+                    request_id,
+                    "session_full",
+                    409,
+                    SESSION_FULL,
+                    session_id,
+                    _usage(used, settings.session_max_messages),
+                    category="session_full",
+                )
 
-        _save_answer(store, settings, session_id, pending.sequence, answer)
-        used = store.message_count(session_id)
-        return _logged(
-            request_id,
-            "ok",
-            200,
-            answer.text,
-            session_id,
-            _usage(used, settings.session_max_messages),
-        )
+            history = store.history(session_id, settings.history_turns)
+            pending = store.begin_turn(session_id, cleaned)
+            try:
+                answer = await run_in_threadpool(
+                    lambda: complete(cleaned, history, settings)
+                )
+            except ModelUnavailable as exc:
+                flags = ("provider_limit",) if exc.provider_limit else ()
+                store.finish_turn(
+                    session_id,
+                    pending.sequence,
+                    reply=UNAVAILABLE,
+                    status="unavailable",
+                    category="unavailable",
+                    flags=flags,
+                )
+                used = store.message_count(session_id)
+                return _chat_response(
+                    request_id,
+                    "unavailable",
+                    503,
+                    UNAVAILABLE,
+                    session_id,
+                    _usage(used, settings.session_max_messages),
+                    category="unavailable",
+                )
+            except (APIConnectionError, APITimeoutError, EmbeddingError, OSError):
+                store.finish_turn(
+                    session_id,
+                    pending.sequence,
+                    reply=UNAVAILABLE,
+                    status="unavailable",
+                    category="unavailable",
+                )
+                used = store.message_count(session_id)
+                return _chat_response(
+                    request_id,
+                    "unavailable",
+                    503,
+                    UNAVAILABLE,
+                    session_id,
+                    _usage(used, settings.session_max_messages),
+                    category="unavailable",
+                )
+            except Exception:  # noqa: BLE001
+                logger.error("%s", _log_line(request_id, "error", 500))
+                store.finish_turn(
+                    session_id,
+                    pending.sequence,
+                    reply=ERROR_TEXT,
+                    status="error",
+                    category="error",
+                )
+                used = store.message_count(session_id)
+                return _chat_response(
+                    request_id,
+                    "error",
+                    500,
+                    ERROR_TEXT,
+                    session_id,
+                    _usage(used, settings.session_max_messages),
+                    category="error",
+                )
+
+            _save_answer(store, settings, session_id, pending.sequence, answer)
+            used = store.message_count(session_id)
+            category = (
+                answer.outcome.category if answer.outcome is not None else None
+            )
+            return _chat_response(
+                request_id,
+                "ok",
+                200,
+                answer.text,
+                session_id,
+                _usage(used, settings.session_max_messages),
+                category=category,
+            )
+        finally:
+            slots.release()
 
     return app
 
@@ -223,7 +250,9 @@ def _save_answer(
     timings = outcome.timings_ms if outcome is not None else None
     tokens = outcome.prompt_tokens if outcome is not None else None
     category = outcome.category if outcome is not None else debug.get("category")
-    flags = outcome.flags if outcome is not None else ()
+    flags = list(outcome.flags if outcome is not None else ())
+    if debug.get("provider_limit"):
+        flags.append("provider_limit")
     top_score = outcome.top_score if outcome is not None else debug.get("top_score")
     if not isinstance(top_score, (int, float)):
         top_score = None
@@ -234,7 +263,7 @@ def _save_answer(
         reply=answer.text,
         status="ok",
         category=None if category is None else str(category),
-        flags=tuple(str(flag) for flag in flags),
+        flags=tuple(str(flag) for flag in dict.fromkeys(flags)),
         top_score=None if top_score is None else float(top_score),
         retrieved=retrieved,
         repair=None if debug.get("repair") is None else str(debug.get("repair")),
@@ -279,8 +308,8 @@ def _usage(used: int, maximum: int) -> dict[str, int]:
     return {"messages_used": used, "messages_max": maximum}
 
 
-def _body_limit(settings: Settings) -> int:
-    return max(65536, settings.message_max_chars * 8)
+def _body_limit(_settings: Settings) -> int:
+    return 8192
 
 
 def _index_files_ok() -> bool:
@@ -308,9 +337,32 @@ def _logged(
     reply: str,
     session_id: str | None,
     usage: dict[str, int] | None,
+    *,
+    category: str | None = None,
 ) -> JSONResponse:
-    logger.info("%s", _log_line(request_id, status, http_status))
+    logger.info("%s", _log_line(request_id, status, http_status, category))
     return _body(status, reply, session_id, usage, http_status)
+
+
+def _chat_response(
+    request_id: str,
+    status: str,
+    http_status: int,
+    reply: str,
+    session_id: str | None,
+    usage: dict[str, int] | None,
+    *,
+    category: str | None = None,
+) -> JSONResponse:
+    logger.info("%s", _log_line(request_id, status, http_status, category))
+    return _body(
+        status,
+        reply,
+        session_id,
+        usage,
+        http_status,
+        extra_headers={"Cache-Control": "no-store"},
+    )
 
 
 def _body(
@@ -319,7 +371,10 @@ def _body(
     session_id: str | None,
     usage: dict[str, int] | None,
     http_status: int,
+    *,
+    extra_headers: dict[str, str] | None = None,
 ) -> JSONResponse:
+    headers = dict(extra_headers or {})
     return JSONResponse(
         {
             "session_id": session_id,
@@ -328,11 +383,21 @@ def _body(
             "session": usage,
         },
         status_code=http_status,
+        headers=headers,
     )
 
 
-def _log_line(request_id: str, status: str, http_status: int) -> str:
-    return json.dumps(
-        {"request_id": request_id, "status": status, "http": http_status},
-        ensure_ascii=True,
-    )
+def _log_line(
+    request_id: str,
+    status: str,
+    http_status: int,
+    category: str | None = None,
+) -> str:
+    payload: dict[str, object] = {
+        "request_id": request_id,
+        "status": status,
+        "http": http_status,
+    }
+    if category:
+        payload["category"] = category
+    return json.dumps(payload, ensure_ascii=True)

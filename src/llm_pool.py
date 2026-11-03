@@ -41,6 +41,10 @@ T = TypeVar("T")
 class ModelUnavailable(Exception):
     """Every configured chat connection failed because it was unreachable or timed out."""
 
+    def __init__(self, message: str, *, provider_limit: bool = False) -> None:
+        super().__init__(message)
+        self.provider_limit = provider_limit
+
 
 class _NoFailover(Exception):
     """The attempt already showed tokens, so another connection must not start over."""
@@ -94,17 +98,33 @@ class LlmPool:
         except Exception as exc:
             if not failover_trigger(exc, self.settings.failover_on_http_status):
                 raise
+            provider_limit = _provider_limit_signal(exc)
+            if provider_limit:
+                logger.warning(
+                    "provider limit signal: HTTP %s",
+                    getattr(exc, "status_code", "?"),
+                )
             if name != "primary" or not self.secondary_configured:
-                raise ModelUnavailable(_unavailable_message(self.secondary_configured)) from exc
+                raise ModelUnavailable(
+                    _unavailable_message(self.secondary_configured),
+                    provider_limit=provider_limit,
+                ) from exc
             self._mark_down(probed=probed)
             try:
                 value = self._with_same_host_retries(attempt, "secondary")
             except _NoFailover as exc2:
                 raise exc2.original from exc2
             except Exception as exc2:
+                limit2 = provider_limit or _provider_limit_signal(exc2)
+                if limit2:
+                    logger.warning(
+                        "provider limit signal: HTTP %s",
+                        getattr(exc2, "status_code", "?"),
+                    )
                 if failover_trigger(exc2, self.settings.failover_on_http_status):
                     raise ModelUnavailable(
-                        _unavailable_message(self.secondary_configured)
+                        _unavailable_message(self.secondary_configured),
+                        provider_limit=limit2,
                     ) from exc2
                 raise
             return value, "secondary", True
@@ -210,6 +230,11 @@ def build_chat_client(base_url: str, api_key: str, timeout_seconds: float) -> Op
 def chat_timeout(timeout_seconds: float) -> httpx.Timeout:
     connect = min(CONNECT_TIMEOUT_SECONDS, timeout_seconds)
     return httpx.Timeout(timeout_seconds, connect=connect)
+
+
+def _provider_limit_signal(exc: BaseException) -> bool:
+    status = getattr(exc, "status_code", None)
+    return isinstance(status, int) and status in (402, 429)
 
 
 def failover_trigger(exc: BaseException, statuses: tuple[int, ...]) -> bool:

@@ -187,6 +187,21 @@ class Store:
             return 0
         return int(row["message_count"])
 
+    def messages_since_utc_midnight(self) -> int:
+        """Visitor turns stored since 00:00 UTC today (persists across restarts)."""
+        now = self.clock()
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        cutoff = _format_utc(start)
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT COUNT(*) AS n FROM turns WHERE created_at >= ?",
+                (cutoff,),
+            ).fetchone()
+            return int(row["n"])
+        finally:
+            conn.close()
+
     def begin_turn(
         self,
         session_id: str,
