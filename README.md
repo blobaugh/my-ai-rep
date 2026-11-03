@@ -69,7 +69,7 @@ ollama create rep-llama -f Modelfile
 
 Verify the effective context. `ollama show rep-llama` should list `num_ctx 8192`.
 
-Chat, retrieval, indexing, and evals all read settings from `src/config.py` (the only reader of `.env`). `python -m src.chat` prints them at startup. Commands: `/reset`, `/quit`, `/help`. `python -m src.chat --ask "question"` answers once with no history. `--debug` adds the retrieval list, `connection_used`, and `failover_active`.
+Chat, retrieval, indexing, and evals all read settings from `src/config.py` (the only reader of `.env`). `python -m src.chat` prints them at startup. Commands: `/reset`, `/quit`, `/help`. `python -m src.chat --ask "question"` answers once with no history. `--debug` adds the retrieval list, `category`, `flags`, `top_score`, `connection_used`, and `failover_active`.
 
 ### Chat connections
 
@@ -84,6 +84,7 @@ Chat, retrieval, indexing, and evals all read settings from `src/config.py` (the
 | LLM_SECONDARY_TIMEOUT_SECONDS | 120 | total time for one secondary call |
 | FAILOVER_RETRY_SECONDS | 300 | how long to stay on the secondary before trying the primary once |
 | FAILOVER_ON_HTTP_STATUS | unset | extra HTTP statuses that fail over. 429 and every 5xx already fail over |
+| WEAK_RETRIEVAL_SCORE | unset | flag `weak_retrieval` when the best sent passage scores below this. Unset disables the flag |
 
 A blank value means unset. The connect timeout is 5 seconds and is not a setting. Failover runs on a connection failure, a timeout, HTTP 429, or any 5xx. Other HTTP errors stay on the connection that returned them unless their status is listed. The embedder does not fail over. See `docs/decisions/016-llm-failover.md`.
 

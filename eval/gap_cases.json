@@ -1,0 +1,247 @@
+[
+  {
+    "id": "gap-high-school",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What high school did you go to?"
+  },
+  {
+    "id": "gap-favorite-food",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What is your favorite food?"
+  },
+  {
+    "id": "gap-salary",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What are your salary expectations?"
+  },
+  {
+    "id": "gap-pet-names",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What are your pets' names?"
+  },
+  {
+    "id": "gap-shoe-size",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What shoe size do you wear?"
+  },
+  {
+    "id": "gap-blood-type",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What is your blood type?"
+  },
+  {
+    "id": "gap-first-car",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What was your first car?"
+  },
+  {
+    "id": "gap-coffee-order",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What is your usual coffee order?"
+  },
+  {
+    "id": "gap-favorite-color",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What is your favorite color?"
+  },
+  {
+    "id": "gap-allergies",
+    "group": "gap",
+    "needs_review": true,
+    "question": "Do you have any allergies?"
+  },
+  {
+    "id": "gap-middle-name",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What is your middle name?"
+  },
+  {
+    "id": "gap-sleep-time",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What time do you usually go to sleep?"
+  },
+  {
+    "id": "gap-favorite-movie",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What is your favorite movie?"
+  },
+  {
+    "id": "gap-kindergarten",
+    "group": "gap",
+    "needs_review": true,
+    "question": "Where did you go to kindergarten?"
+  },
+  {
+    "id": "gap-sign",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What is your astrological sign?"
+  },
+  {
+    "id": "gap-school-sports",
+    "group": "gap",
+    "needs_review": true,
+    "question": "Which school sports did you play?"
+  },
+  {
+    "id": "gap-board-game",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What is your favorite board game?"
+  },
+  {
+    "id": "gap-tea-or-coffee",
+    "group": "gap",
+    "needs_review": true,
+    "question": "Do you prefer tea or coffee?"
+  },
+  {
+    "id": "gap-height",
+    "group": "gap",
+    "needs_review": true,
+    "question": "How tall are you?"
+  },
+  {
+    "id": "gap-drivers-license",
+    "group": "gap",
+    "needs_review": true,
+    "question": "What year did you get your driver's license?"
+  },
+  {
+    "id": "off-sun",
+    "group": "off_topic",
+    "question": "Tell me about the Sun"
+  },
+  {
+    "id": "off-france",
+    "group": "off_topic",
+    "question": "What is the capital of France?"
+  },
+  {
+    "id": "off-reverse-string",
+    "group": "off_topic",
+    "question": "How do I reverse a string in Python?"
+  },
+  {
+    "id": "off-weather",
+    "group": "off_topic",
+    "question": "What is the weather in Seattle tomorrow?"
+  },
+  {
+    "id": "off-joke",
+    "group": "off_topic",
+    "question": "Tell me a joke"
+  },
+  {
+    "id": "off-world-series",
+    "group": "off_topic",
+    "question": "Who won the World Series?"
+  },
+  {
+    "id": "off-pasta",
+    "group": "off_topic",
+    "question": "How do I cook pasta?"
+  },
+  {
+    "id": "off-math",
+    "group": "off_topic",
+    "question": "What is 17 times 23?"
+  },
+  {
+    "id": "off-news",
+    "group": "off_topic",
+    "question": "What is in the news today?"
+  },
+  {
+    "id": "off-quantum",
+    "group": "off_topic",
+    "question": "Explain quantum physics"
+  },
+  {
+    "id": "answer-who",
+    "group": "answerable",
+    "question": "Who are you?"
+  },
+  {
+    "id": "answer-work",
+    "group": "answerable",
+    "question": "What kind of work do you do?"
+  },
+  {
+    "id": "answer-philosophy",
+    "group": "answerable",
+    "question": "What is your leadership philosophy?"
+  },
+  {
+    "id": "answer-mistakes",
+    "group": "answerable",
+    "question": "How do you handle mistakes?"
+  },
+  {
+    "id": "answer-ai-first",
+    "group": "answerable",
+    "question": "What does AI-first mean to you?"
+  },
+  {
+    "id": "answer-saturday",
+    "group": "answerable",
+    "question": "What does a perfect Saturday look like?"
+  },
+  {
+    "id": "answer-sailing-start",
+    "group": "answerable",
+    "question": "How did you get into sailing?"
+  },
+  {
+    "id": "answer-coaching",
+    "group": "answerable",
+    "question": "What is the difference between coaching and mentoring?"
+  },
+  {
+    "id": "answer-one-on-ones",
+    "group": "answerable",
+    "question": "How do you run one-on-ones?"
+  },
+  {
+    "id": "answer-management",
+    "group": "answerable",
+    "question": "What is your management style?"
+  },
+  {
+    "id": "answer-develop",
+    "group": "answerable",
+    "question": "How do you develop people?"
+  },
+  {
+    "id": "answer-friends",
+    "group": "answerable",
+    "question": "Are you friends with employees?"
+  },
+  {
+    "id": "answer-principles",
+    "group": "answerable",
+    "question": "What are your core principles?"
+  },
+  {
+    "id": "answer-ideal-role",
+    "group": "answerable",
+    "question": "What does an ideal role look like for you?"
+  },
+  {
+    "id": "answer-bot",
+    "group": "answerable",
+    "question": "What is this bot?"
+  }
+]

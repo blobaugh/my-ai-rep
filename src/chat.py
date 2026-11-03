@@ -22,6 +22,16 @@ HELP = """/reset  Clear this conversation and show the greeting again.
 def format_debug(answer: Answer) -> str:
     retrieved = answer.debug.get("retrieved") or []
     lines = []
+    if answer.debug.get("category"):
+        lines.append(f"[debug] category={answer.debug['category']}")
+    outcome_flags = answer.debug.get("outcome_flags")
+    if isinstance(outcome_flags, list):
+        shown = ",".join(str(flag) for flag in outcome_flags) or "none"
+        lines.append(f"[debug] flags={shown}")
+    if "top_score" in answer.debug:
+        top = answer.debug.get("top_score")
+        shown_top = f"{float(top):.4f}" if isinstance(top, (int, float)) else "none"
+        lines.append(f"[debug] top_score={shown_top}")
     if answer.debug.get("guard_pattern"):
         lines.append(f"[debug] guard: {answer.debug['guard_pattern']}")
     lines.append(f"[debug] query_used: {answer.debug.get('query_used', '')!r}")

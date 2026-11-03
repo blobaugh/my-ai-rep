@@ -194,6 +194,9 @@ def run_once(
         "model_calls": int(answer.debug.get("model_calls") or 0),
         "connection_used": answer.debug.get("connection_used"),
         "failover_active": bool(answer.debug.get("failover_active")),
+        "category": answer.debug.get("category"),
+        "outcome_flags": list(answer.debug.get("outcome_flags") or []),
+        "top_score": answer.debug.get("top_score"),
         "draft_text": (answer.debug.get("verification") or {}).get("original_text")
         or answer.text,
         "timings": answer.debug.get("timings") or {},

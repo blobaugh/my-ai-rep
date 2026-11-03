@@ -61,6 +61,7 @@ class Settings:
     retrieval_k: int = 4
     retrieval_max_per_article: int = 2
     retrieval_min_score: float | None = None
+    weak_retrieval_score: float | None = None
     retrieval_query_mode: str = "auto"
     retrieval_query_turns: int = 2
     history_turns: int = 6
@@ -134,6 +135,11 @@ class Settings:
             "RETRIEVAL_K": self.retrieval_k,
             "RETRIEVAL_MAX_PER_ARTICLE": self.retrieval_max_per_article,
             "RETRIEVAL_MIN_SCORE": min_score,
+            "WEAK_RETRIEVAL_SCORE": (
+                "unset"
+                if self.weak_retrieval_score is None
+                else _format_float(self.weak_retrieval_score)
+            ),
             "RETRIEVAL_QUERY_MODE": self.retrieval_query_mode,
             "RETRIEVAL_QUERY_TURNS": self.retrieval_query_turns,
             "HISTORY_TURNS": self.history_turns,
@@ -352,6 +358,7 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
             data, "RETRIEVAL_MAX_PER_ARTICLE", 2, minimum=1
         ),
         retrieval_min_score=_min_score(data),
+        weak_retrieval_score=_unit_score(data, "WEAK_RETRIEVAL_SCORE"),
         retrieval_query_mode=_choice(data, "RETRIEVAL_QUERY_MODE", "auto", QUERY_MODES),
         retrieval_query_turns=_int(data, "RETRIEVAL_QUERY_TURNS", 2, minimum=1),
         history_turns=_int(data, "HISTORY_TURNS", 6, minimum=0),
@@ -477,8 +484,8 @@ def _float(
     return value
 
 
-def _min_score(data: Mapping[str, str]) -> float | None:
-    name = "RETRIEVAL_MIN_SCORE"
+def _unit_score(data: Mapping[str, str], name: str) -> float | None:
+    """A blank score is unset. A set score is a float from 0 to 1."""
     if name not in data or str(data[name]).strip() == "":
         return None
     raw = str(data[name]).strip()
@@ -489,6 +496,10 @@ def _min_score(data: Mapping[str, str]) -> float | None:
     if not 0.0 <= value <= 1.0:
         raise ValueError(f"{name} must be between 0 and 1, got {raw!r}")
     return value
+
+
+def _min_score(data: Mapping[str, str]) -> float | None:
+    return _unit_score(data, "RETRIEVAL_MIN_SCORE")
 
 
 def _choice(

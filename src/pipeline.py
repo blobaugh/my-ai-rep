@@ -22,6 +22,7 @@ from src.config import (
 from src.faithfulness import name_stopwords
 from src.guards import exempt_replies, match_guard, persona_lines
 from src.llm_pool import LlmPool, ModelUnavailable, _NoFailover, pool_for
+from src.outcomes import TurnResult, classify_turn
 from src.prompt import (
     ABOUT_PATH,
     apply_budget_guard,
@@ -57,6 +58,7 @@ class Answer:
     sources_block: str
     debug: dict[str, Any] = field(default_factory=dict)
     finish_reason: str | None = None
+    outcome: TurnResult | None = None
 
 
 def make_chat_client(settings: Settings) -> OpenAI:
@@ -89,19 +91,30 @@ def answer_turn(
     """Validate, retrieve, assemble, and call the model once."""
     started = time.perf_counter()
     if len(question) > MAX_MESSAGE_CHARS:
-        answer = _skipped(settings, TOO_LONG, "invalid", question, started, reason="too_long")
+        answer = _with_outcome(
+            _skipped(settings, TOO_LONG, "invalid", question, started, reason="too_long"),
+            question,
+            settings,
+        )
         _log_turn(settings, question, answer)
         return answer
     cleaned = question.strip()
     if not cleaned:
-        answer = _skipped(settings, "", "invalid", question, started, reason="empty")
-        return answer
+        return _with_outcome(
+            _skipped(settings, "", "invalid", question, started, reason="empty"),
+            cleaned,
+            settings,
+        )
     lines = persona_lines(settings.human_name, settings.bot_name)
     guard = match_guard(cleaned, human_name=settings.human_name)
     if guard:
         kind, pattern = guard
         reply = lines.identity if kind == "identity" else lines.off_topic
-        answer = _guarded(settings, started, pattern, reply)
+        answer = _with_outcome(
+            _guarded(settings, started, pattern, reply),
+            cleaned,
+            settings,
+        )
         _log_turn(settings, cleaned, answer)
         return answer
 
@@ -252,8 +265,49 @@ def answer_turn(
         "connection_used": connection_used,
         "failover_active": failover_active,
     }
-    answer = Answer(text=text, sources_block="", debug=debug, finish_reason=finish)
+    answer = _with_outcome(
+        Answer(text=text, sources_block="", debug=debug, finish_reason=finish),
+        cleaned,
+        settings,
+    )
     _log_turn(settings, cleaned, answer)
+    return answer
+
+
+def _with_outcome(answer: Answer, question: str, settings: Settings) -> Answer:
+    """Classify the finished turn and mirror the decision into debug."""
+    debug = answer.debug
+    usage = debug.get("usage")
+    prompt_tokens: int | None = None
+    if isinstance(usage, dict) and isinstance(usage.get("prompt_tokens"), int):
+        prompt_tokens = usage["prompt_tokens"]
+    elif isinstance(debug.get("prompt_token_estimate"), int):
+        prompt_tokens = debug["prompt_token_estimate"]
+    retrieved = debug.get("retrieved")
+    verification = debug.get("verification")
+    timings = debug.get("timings")
+    connection = debug.get("connection_used")
+    outcome = classify_turn(
+        question,
+        answer.text,
+        human_name=settings.human_name,
+        bot_name=settings.bot_name,
+        finish_reason=answer.finish_reason,
+        repair=str(debug.get("repair") or "none"),
+        failover_active=bool(debug.get("failover_active")),
+        retrieved=retrieved if isinstance(retrieved, list) else [],
+        weak_retrieval_score=settings.weak_retrieval_score,
+        verification=verification if isinstance(verification, dict) else None,
+        timings=timings if isinstance(timings, dict) else {},
+        prompt_tokens=prompt_tokens,
+        connection_used=connection if isinstance(connection, str) else None,
+    )
+    answer.outcome = outcome
+    debug["category"] = outcome.category
+    debug["outcome_flags"] = list(outcome.flags)
+    debug["top_score"] = outcome.top_score
+    if outcome.guard_name:
+        debug["guard_name"] = outcome.guard_name
     return answer
 
 
@@ -679,6 +733,9 @@ def _log_turn(settings: Settings, question: str, answer: Answer) -> None:
         "question": question,
         "answer": answer.text,
         "finish_reason": answer.finish_reason,
+        "category": answer.debug.get("category"),
+        "outcome_flags": list(answer.debug.get("outcome_flags") or []),
+        "top_score": answer.debug.get("top_score"),
         "retrieved": answer.debug.get("retrieved", []),
     }
     with TURN_LOG.open("a", encoding="utf-8") as handle:
