@@ -114,3 +114,11 @@ Dev merge mounts `examples/` at `/content`. See `docs/deploy/content.md`.
 | backup | `benbot/backup` | default (egress only) | `python -m src.backup loop`; data volume **read-only** |
 
 See `docs/deploy/backup-restore.md`. Dev compose adds MinIO and points `SPACES_*` at it.
+
+## Review (one-off)
+
+```bash
+docker compose run --rm api python -m src.review gaps
+```
+
+See `docs/web/review.md`.
