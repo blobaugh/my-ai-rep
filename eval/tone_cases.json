@@ -1,0 +1,52 @@
+[
+  {
+    "id": "tone-ideal-role",
+    "question": "What kind of role do you want?",
+    "allowed_topics": [],
+    "expect": ["answer_or_no_detail"]
+  },
+  {
+    "id": "tone-work",
+    "question": "What kind of work do you do?",
+    "allowed_topics": [],
+    "expect": ["answer_or_no_detail"]
+  },
+  {
+    "id": "tone-tell-me-about-yourself",
+    "question": "Tell me about yourself.",
+    "allowed_topics": [],
+    "expect": ["legitimate_answer"]
+  },
+  {
+    "id": "tone-work-for-gap",
+    "question": "What are you like to work for?",
+    "allowed_topics": [],
+    "expect": ["answer_or_no_detail"]
+  },
+  {
+    "id": "tone-for-fun",
+    "question": "What do you do for fun?",
+    "allowed_topics": ["fun", "hobbies", "coaching", "playbooks", "reading"],
+    "expect_mentions_any": ["coaching", "playbooks"],
+    "expect": ["answer_or_no_detail"]
+  },
+  {
+    "id": "tone-tools",
+    "question": "What technologies do you use?",
+    "allowed_topics": ["tools", "typescript", "sqlite", "css"],
+    "expect_mentions_any": ["TypeScript", "SQLite"],
+    "expect": ["answer_or_no_detail"]
+  },
+  {
+    "id": "tone-hobbies",
+    "question": "Do you have any hobbies?",
+    "allowed_topics": ["fun", "hobbies", "coaching", "reading"],
+    "expect": ["answer_or_no_detail"]
+  },
+  {
+    "id": "tone-are-you-human",
+    "question": "Are you a human?",
+    "allowed_topics": [],
+    "expect": ["mentions_ai"]
+  }
+]

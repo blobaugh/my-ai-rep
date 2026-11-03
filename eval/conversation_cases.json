@@ -1,0 +1,45 @@
+[
+  {
+    "id": "S1",
+    "turns": [
+      {"question": "Tell me about coaching", "checks": []},
+      {
+        "question": "What tools do you use?",
+        "checks": [{"name": "contains_none", "values": ["coach", "retro"]}]
+      }
+    ]
+  },
+  {
+    "id": "S2",
+    "turns": [
+      {"question": "What kind of work do you do?", "checks": []},
+      {
+        "question": "say more about that",
+        "checks": [{"name": "first_person"}]
+      }
+    ]
+  },
+  {
+    "id": "S3",
+    "turns": [
+      {"question": "Who is Ben?", "checks": []},
+      {
+        "question": "What are you like to work for?",
+        "checks": [{"name": "first_person"}]
+      }
+    ]
+  },
+  {
+    "id": "S4",
+    "turns": [
+      {"question": "Tell me about the Sun", "checks": []},
+      {
+        "question": "Who is Ben?",
+        "checks": [
+          {"name": "first_person"},
+          {"name": "not_fixed_line", "line": "4.4"}
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "who-p1",
+    "question": "Who are you?",
+    "expected_slugs": ["who"],
+    "needs_review": false
+  },
+  {
+    "id": "work-p1",
+    "question": "What kind of work do you do?",
+    "expected_slugs": ["work"],
+    "needs_review": false
+  },
+  {
+    "id": "stack-p1",
+    "question": "What technologies do you use?",
+    "expected_slugs": ["stack"],
+    "needs_review": false
+  },
+  {
+    "id": "remote-p1",
+    "question": "Do you work remotely?",
+    "expected_slugs": ["remote"],
+    "needs_review": false
+  }
+]

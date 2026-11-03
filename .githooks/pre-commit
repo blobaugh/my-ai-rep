@@ -1,0 +1,5 @@
+#!/bin/sh
+# Block a commit when staged files are private or match a secret pattern.
+set -eu
+root=$(git rev-parse --show-toplevel)
+exec "$root/scripts/check_public_safe.sh" --staged

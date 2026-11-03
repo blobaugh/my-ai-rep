@@ -1,0 +1,27 @@
+[project]
+name = "benbot"
+version = "0.1.0"
+description = "BenBot — an AI that speaks for Ben"
+requires-python = ">=3.9"
+dependencies = [
+    "python-dotenv",
+    "openai",
+    "numpy",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "integration: hits a live embeddings endpoint (set RUN_INTEGRATION=1)",
+]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88

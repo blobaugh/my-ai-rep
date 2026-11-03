@@ -1,0 +1,9 @@
+[
+  {
+    "id": "off-topic-sun",
+    "question": "Tell me about the Sun",
+    "expected_slugs": [],
+    "off_topic": true,
+    "needs_review": false
+  }
+]
