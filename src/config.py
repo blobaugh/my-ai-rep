@@ -81,6 +81,9 @@ class Settings:
     llm_secondary_timeout_seconds: float = 120.0
     failover_retry_seconds: float = 300.0
     failover_on_http_status: tuple[int, ...] = ()
+    db_path: str = "data/benbot.sqlite"
+    session_idle_minutes: int = 60
+    session_max_messages: int = 50
 
     def to_embed_config(self) -> EmbedConfig:
         return EmbedConfig(
@@ -149,6 +152,9 @@ class Settings:
             "LOG_TURNS": self.log_turns,
             "VERIFY_PRUNE_MIN_SENTENCES": self.verify_prune_min_sentences,
             "CONTENT_DIR": self.content_dir,
+            "DB_PATH": self.db_path,
+            "SESSION_IDLE_MINUTES": self.session_idle_minutes,
+            "SESSION_MAX_MESSAGES": self.session_max_messages,
             "BOT_NAME": self.bot_name,
             "HUMAN_NAME": self.human_name,
             "TOPIC_LEAK_WORDS": ",".join(self.topic_leak_words),
@@ -373,6 +379,9 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
             data, "VERIFY_PRUNE_MIN_SENTENCES", 2, minimum=1
         ),
         content_dir=_str(data, "CONTENT_DIR", "content"),
+        db_path=_str(data, "DB_PATH", "data/benbot.sqlite"),
+        session_idle_minutes=_int(data, "SESSION_IDLE_MINUTES", 60, minimum=0),
+        session_max_messages=_int(data, "SESSION_MAX_MESSAGES", 50, minimum=1),
     )
 
 

@@ -90,6 +90,16 @@ A blank value means unset. The connect timeout is 5 seconds and is not a setting
 
 `CONTEXT_BUDGET_TOKENS` (default 7000) keeps each request under the measured window (history drops first, then lowest-ranked chunks).
 
+### Session log
+
+| Name | Default | Meaning |
+|---|---|---|
+| DB_PATH | data/benbot.sqlite | SQLite file for sessions and the exchange log |
+| SESSION_IDLE_MINUTES | 60 | after this long with no accepted message, the next one starts a new session |
+| SESSION_MAX_MESSAGES | 50 | visitor messages accepted into one session. The next one is stored as `session_full` |
+
+The cap counts visitor messages that were accepted for an answer. Deleting a session removes it from this file only. Copies already in backups stay. See `docs/decisions/018-sqlite-store.md`.
+
 ## Tests
 
 ```bash

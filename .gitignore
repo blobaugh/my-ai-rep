@@ -10,6 +10,8 @@ data/
 *.sqlite
 *.sqlite3
 *.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
 *.db-wal
 *.db-shm
 
