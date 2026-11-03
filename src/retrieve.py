@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from src.config import KNOWN_SOURCES, load_embed_config, load_settings
+from src.config import indexed_source_types, load_embed_config, load_settings
 from src.embeddings import EmbedConfig, embed_texts
 from src.vector_store import NumpyVectorStore, SearchHit, VectorStore
 
@@ -124,19 +124,6 @@ def apply_per_article_cap(
     return kept
 
 
-def parse_retrieval_sources(raw: str | None) -> set[str] | None:
-    """Parse RETRIEVAL_SOURCES. None = unset (caller default); empty set = no retrieval.
-
-    ``none`` (any case) means no retrieval. Comma-separated types otherwise.
-    """
-    if raw is None:
-        return None
-    text = raw.strip()
-    if not text or text.lower() == "none":
-        return set()
-    return {part.strip() for part in text.split(",") if part.strip()}
-
-
 def retrieve(
     question: str,
     *,
@@ -236,10 +223,8 @@ def format_retrieve_header(settings: Any) -> str:
         min_score = "unset"
     else:
         min_score = format(settings.retrieval_min_score, "g")
-    sources = ",".join(sorted(settings.retrieval_sources)) or "none"
     return (
         "Effective settings: "
-        f"RETRIEVAL_SOURCES={sources} "
         f"RETRIEVAL_K={settings.retrieval_k} "
         f"RETRIEVAL_MAX_PER_ARTICLE={settings.retrieval_max_per_article} "
         f"RETRIEVAL_MIN_SCORE={min_score} "
@@ -270,16 +255,6 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Override RETRIEVAL_MIN_SCORE",
     )
-    parser.add_argument(
-        "--source-type",
-        default=None,
-        help="Optional single source_type filter when --sources is omitted",
-    )
-    parser.add_argument(
-        "--sources",
-        default=None,
-        help="Comma-separated source types (overrides RETRIEVAL_SOURCES; use none for empty)",
-    )
     args = parser.parse_args(argv)
 
     try:
@@ -294,31 +269,13 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.min_score is not None:
             settings = settings.with_overrides(retrieval_min_score=args.min_score)
-        if args.sources is not None:
-            parsed = parse_retrieval_sources(args.sources) or set()
-            unknown = sorted(part for part in parsed if part not in KNOWN_SOURCES)
-            if unknown:
-                raise ValueError(
-                    "RETRIEVAL_SOURCES has unknown source type "
-                    f"{unknown[0]!r}; expected qa or facts"
-                )
-            settings = settings.with_overrides(retrieval_sources=frozenset(parsed))
-            source_types: set[str] | None = set(settings.retrieval_sources)
-            source_type = None
-        elif args.source_type is not None:
-            source_types = None
-            source_type = args.source_type
-        else:
-            source_types = set(settings.retrieval_sources)
-            source_type = None
         print(format_retrieve_header(settings))
         results, embed_s, search_s = retrieve_timed(
             args.question,
             k=settings.retrieval_k,
             max_per_article=settings.retrieval_max_per_article,
             min_score=settings.retrieval_min_score,
-            source_type=source_type,
-            source_types=source_types,
+            source_types=indexed_source_types(settings),
             config=settings.to_embed_config(),
         )
     except (OSError, RuntimeError, ValueError) as exc:

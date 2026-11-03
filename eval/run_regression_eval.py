@@ -212,7 +212,6 @@ def repair_summary(label: str, turns: list[dict[str, Any]]) -> str:
 
 
 def envelope(settings: Settings, system_prompt: str, cases: list[dict[str, Any]]) -> dict[str, Any]:
-    sources = ",".join(sorted(settings.retrieval_sources)) or "none"
     return {
         "created_at": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
         "model": settings.llm_model,
@@ -220,7 +219,6 @@ def envelope(settings: Settings, system_prompt: str, cases: list[dict[str, Any]]
         "git_commit": git_commit(),
         "settings": settings.masked_dict(),
         "temperature": settings.llm_temperature,
-        "retrieval_sources": sources,
         "qa_mode": settings.qa_mode,
         "qa_embed_mode": settings.qa_embed_mode,
         "voice_samples": settings.voice_samples,
@@ -230,7 +228,6 @@ def envelope(settings: Settings, system_prompt: str, cases: list[dict[str, Any]]
 
 def build_run_settings(
     *,
-    sources: str | None = None,
     qa_mode: str | None = None,
     temperature: float | None = None,
     voice_samples: str | None = None,
@@ -244,10 +241,6 @@ def build_run_settings(
     """Settings from config.py plus the explicit overrides for this run."""
     settings = base if base is not None else load_settings()
     changes: dict[str, Any] = {}
-    if sources is not None:
-        from src.config import _sources
-
-        changes["retrieval_sources"] = _sources({"RETRIEVAL_SOURCES": sources})
     if qa_mode is not None:
         changes["qa_mode"] = qa_mode
     if temperature is not None:
@@ -276,12 +269,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--query-turns", type=int, default=None)
     parser.add_argument("--query-mode", default=None, choices=["auto", "turns"])
     parser.add_argument("--facts-in-prompt", default=None, choices=["full", "summary"])
-    parser.add_argument("--sources", default=None)
     parser.add_argument("--qa-mode", default=None, choices=["retrieve", "stuff"])
     parser.add_argument("--tag", default="")
     args = parser.parse_args(argv)
     settings = build_run_settings(
-        sources=args.sources,
         qa_mode=args.qa_mode,
         temperature=args.temperature,
         retrieval_k=args.k,

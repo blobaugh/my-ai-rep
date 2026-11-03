@@ -103,7 +103,6 @@ def test_defaults_match_spec() -> None:
     assert settings.retrieval_k == 4
     assert settings.retrieval_max_per_article == 2
     assert settings.retrieval_query_turns == 2
-    assert settings.retrieval_sources == frozenset({"qa", "facts"})
     assert settings.retrieval_query_mode == "auto"
     assert settings.facts_in_prompt == "full"
     assert settings.qa_embed_mode == "multi"
@@ -116,8 +115,6 @@ def test_defaults_match_spec() -> None:
 def test_parse_error_names_the_variable() -> None:
     with pytest.raises(ValueError, match="RETRIEVAL_K"):
         _settings(RETRIEVAL_K="nope")
-    with pytest.raises(ValueError, match="RETRIEVAL_SOURCES"):
-        _settings(RETRIEVAL_SOURCES="wiki")
     with pytest.raises(ValueError, match="RETRIEVAL_MIN_SCORE"):
         _settings(RETRIEVAL_MIN_SCORE="2")
 
@@ -288,7 +285,6 @@ def test_retrieve_cli_uses_settings(monkeypatch: pytest.MonkeyPatch, capsys: pyt
     captured = capsys.readouterr()
     assert code == 0
     assert "RETRIEVAL_K=3" in captured.out
-    assert "RETRIEVAL_SOURCES=facts,qa" in captured.out
     assert "EMBED_MODEL=embed-x" in captured.out
 
 
@@ -302,13 +298,11 @@ def test_retrieve_help_is_not_blog_only(capsys: pytest.CaptureFixture[str]) -> N
 
 def test_eval_runner_uses_config_settings() -> None:
     settings = build_run_settings(
-        sources="none",
         retrieval_k=8,
         query_turns=1,
         base=_settings(LLM_MODEL="from-config"),
     )
     assert settings.llm_model == "from-config"
-    assert settings.retrieval_sources == frozenset()
     assert settings.retrieval_k == 8
     assert settings.retrieval_query_turns == 1
     source = (ROOT / "eval" / "run_guardrail_eval.py").read_text(encoding="utf-8")

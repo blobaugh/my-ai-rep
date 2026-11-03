@@ -21,7 +21,6 @@ from dotenv import load_dotenv
 
 from src.embeddings import EmbedConfig
 
-KNOWN_SOURCES = frozenset({"qa", "facts"})
 QA_MODES = frozenset({"retrieve", "stuff"})
 QA_EMBED_MODES = frozenset({"question_and_answer", "question_only", "multi"})
 QUERY_MODES = frozenset({"auto", "turns"})
@@ -61,7 +60,6 @@ class Settings:
     embed_query_prefix: str = "search_query: "
     embed_doc_prefix: str = "search_document: "
     qa_embed_mode: str = "multi"
-    retrieval_sources: frozenset[str] = frozenset({"qa", "facts"})
     retrieval_k: int = 4
     retrieval_max_per_article: int = 2
     retrieval_min_score: float | None = None
@@ -101,7 +99,6 @@ class Settings:
             min_score = "unset"
         else:
             min_score = _format_float(self.retrieval_min_score)
-        sources = ",".join(sorted(self.retrieval_sources)) or "none"
         return {
             "LLM_BASE_URL": self.llm_base_url,
             "LLM_API_KEY": mask_secret(self.llm_api_key),
@@ -116,7 +113,6 @@ class Settings:
             "EMBED_QUERY_PREFIX": self.embed_query_prefix,
             "EMBED_DOC_PREFIX": self.embed_doc_prefix,
             "QA_EMBED_MODE": self.qa_embed_mode,
-            "RETRIEVAL_SOURCES": sources,
             "RETRIEVAL_K": self.retrieval_k,
             "RETRIEVAL_MAX_PER_ARTICLE": self.retrieval_max_per_article,
             "RETRIEVAL_MIN_SCORE": min_score,
@@ -139,8 +135,6 @@ class Settings:
     def hash_payload(self) -> dict[str, Any]:
         """Unmasked canonical values. Used only as hash input, never printed."""
         data = {field.name: getattr(self, field.name) for field in fields(self)}
-        sources = data["retrieval_sources"]
-        data["retrieval_sources"] = sorted(sources)
         data["topic_leak_words"] = list(data["topic_leak_words"])
         return data
 
@@ -299,7 +293,6 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
     llm_key = _str(data, "LLM_API_KEY", "ollama")
     embed_base = _optional_text(data, "EMBED_BASE_URL")
     embed_key = _optional_text(data, "EMBED_API_KEY")
-    sources = _sources(data)
     qa_mode = _choice(data, "QA_MODE", "retrieve", QA_MODES)
     qa_embed = _choice(
         data, "QA_EMBED_MODE", "multi", QA_EMBED_MODES
@@ -330,7 +323,6 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
         embed_query_prefix=_prefix(data, "EMBED_QUERY_PREFIX", "search_query: "),
         embed_doc_prefix=_prefix(data, "EMBED_DOC_PREFIX", "search_document: "),
         qa_embed_mode=qa_embed,
-        retrieval_sources=sources,
         retrieval_k=_int(data, "RETRIEVAL_K", 4, minimum=1),
         retrieval_max_per_article=_int(
             data, "RETRIEVAL_MAX_PER_ARTICLE", 2, minimum=1
@@ -445,21 +437,14 @@ def _choice(
     return raw
 
 
-def _sources(data: Mapping[str, str]) -> frozenset[str]:
-    name = "RETRIEVAL_SOURCES"
-    if name not in data:
-        return frozenset({"qa", "facts"})
-    text = str(data[name]).strip()
-    if not text or text.lower() == "none":
-        return frozenset()
-    parts = [part.strip() for part in text.split(",") if part.strip()]
-    unknown = [part for part in parts if part not in KNOWN_SOURCES]
-    if unknown:
-        raise ValueError(
-            f"RETRIEVAL_SOURCES has unknown source type {unknown[0]!r}; "
-            "expected qa or facts"
-        )
-    return frozenset(parts)
+def indexed_source_types(settings: Settings) -> set[str]:
+    """Entries to search. Text already placed in the prompt is not searched again."""
+    types = {"qa", "facts"}
+    if settings.qa_mode == "stuff":
+        types.discard("qa")
+    if settings.facts_in_prompt == "full":
+        types.discard("facts")
+    return types
 
 
 def _format_float(value: float) -> str:

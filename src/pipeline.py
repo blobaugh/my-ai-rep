@@ -14,6 +14,7 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 from src.config import (
     Settings,
+    indexed_source_types,
     prompt_hash,
     select_content_path,
     settings_hash,
@@ -123,7 +124,7 @@ def answer_turn(
         query_turns=settings.retrieval_query_turns,
         mode=settings.retrieval_query_mode,
     )
-    source_types = _source_types(settings)
+    source_types = indexed_source_types(settings)
     embed_s = 0.0
     search_s = 0.0
     chunks: list[RetrievedChunk] = []
@@ -510,15 +511,6 @@ def _maybe_stuff(
         return base, "", note
     knowledge = "\n\n".join(f"Q: {e.question}\nA: {e.answer}" for e in used)
     return active, knowledge, ""
-
-
-def _source_types(settings: Settings) -> set[str]:
-    types = set(settings.retrieval_sources)
-    if settings.qa_mode == "stuff":
-        types.discard("qa")
-        if settings.facts_in_prompt == "full":
-            types.discard("facts")
-    return types
 
 
 def _search(

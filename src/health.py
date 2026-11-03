@@ -9,7 +9,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from src.config import Settings, min_score_warning, resolve_content_file
+from src.config import (
+    Settings,
+    indexed_source_types,
+    min_score_warning,
+    resolve_content_file,
+)
 from src.qa import QAParseError, parse_qa
 
 PROMPT_PATH = Path("prompts/system.md")
@@ -66,22 +71,22 @@ def run_health_checks(settings: Settings, *, probe: Probe | None = None) -> Heal
         errors.extend(_index_mismatch_errors(settings, info.index))
         qa_entries = int(info.index.get("qa_entries") or 0)
         facts_entries = int(info.index.get("facts_entries") or 0)
-        if "qa" in settings.retrieval_sources and qa_entries < 1:
+        indexed = indexed_source_types(settings)
+        if "qa" in indexed and qa_entries < 1:
             errors.append(
-                "RETRIEVAL_SOURCES includes qa but the index has no Q&A entries. "
+                "The index has no Q&A entries. "
                 "Run python -m src.qa && python -m src.index_chunks"
             )
-        if "facts" in settings.retrieval_sources and facts_entries < 1:
+        if "facts" in indexed and facts_entries < 1:
             errors.append(
-                "RETRIEVAL_SOURCES includes facts but the index has no facts entries. "
+                "The index has no facts entries. "
                 "Run python -m src.qa && python -m src.index_chunks"
             )
         if _index_is_stale(info):
             warnings.append(STALE_WARNING)
 
-    sources = ",".join(sorted(settings.retrieval_sources)) or "none"
     ready = (
-        f"Ready: model={settings.llm_model} sources={sources} "
+        f"Ready: model={settings.llm_model} "
         f"k={settings.retrieval_k} qa_entries={qa_entries} "
         f"temperature={_temp(settings.llm_temperature)} "
         f"voice_samples={settings.voice_samples} "

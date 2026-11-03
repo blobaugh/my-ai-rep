@@ -270,7 +270,7 @@ def test_knowledge_text_matches_full_and_summary(tmp_path: Path, monkeypatch: py
     summary = answer_turn(
         "Tell me about retreats",
         [],
-        load_settings(environ={"FACTS_IN_PROMPT": "summary", "RETRIEVAL_SOURCES": "qa,facts"}),
+        load_settings(environ={"FACTS_IN_PROMPT": "summary"}),
         clients=_Client(),
         retrieve_fn=retrieve,
     )
@@ -287,7 +287,7 @@ def test_knowledge_text_matches_full_and_summary(tmp_path: Path, monkeypatch: py
     full = answer_turn(
         "Tell me about retreats",
         [],
-        load_settings(environ={"FACTS_IN_PROMPT": "full", "RETRIEVAL_SOURCES": "qa,facts"}),
+        load_settings(environ={"FACTS_IN_PROMPT": "full"}),
         clients=_Client(),
         retrieve_fn=retrieve,
     )

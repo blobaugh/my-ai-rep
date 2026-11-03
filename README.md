@@ -21,12 +21,12 @@ pip install -e ".[dev]"
 ```bash
 python -m src.qa                  # → data/chunks/qa_chunks.jsonl and facts_chunks.jsonl
 python -m src.index_chunks        # → data/index/{vectors.npy,index.json}
-python -m src.retrieve "What does AI-first mean to you?" --sources qa
+python -m src.retrieve "What does AI-first mean to you?"
 python -m eval.run_retrieval_eval
 python -m eval.run_qa_retrieval_eval
 python -m src.chat
 python -m src.chat --debug
-python -m eval.run_guardrail_eval --sources qa
+python -m eval.run_guardrail_eval
 python -m eval.compare_runs data/eval/guardrail_*.json
 ```
 
@@ -49,12 +49,12 @@ Fictional samples are committed under `examples/` (`about-ben.example.md`, `fact
 A checkout that has no `content/` directory can run against the samples:
 
 ```bash
-CONTENT_DIR=examples QA_MODE=stuff RETRIEVAL_SOURCES=none python -m src.chat --ask "Who are you?"
+CONTENT_DIR=examples QA_MODE=stuff python -m src.chat --ask "Who are you?"
 ```
 
 `CONTENT_DIR` defaults to `content`. The loader uses `{name}.md` in that directory, then `{name}.example.md`.
 
-`RETRIEVAL_SOURCES` selects which indexed source types are searched (`qa` and `facts`). `QA_MODE=stuff` puts every Q&A entry in the system prompt instead of retrieving them.
+Every indexed entry is knowledge about the person. The facts file is already in the prompt, so chat searches the Q&A entries and sends the closest ones. `QA_MODE=stuff` puts every Q&A entry in the system prompt instead of retrieving them.
 
 ### Chat context window
 

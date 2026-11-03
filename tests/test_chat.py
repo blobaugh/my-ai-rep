@@ -91,7 +91,6 @@ def _settings(**env: str):
         "LLM_MODEL": "fake",
         "LLM_BASE_URL": "http://example",
         "LLM_API_KEY": "x",
-        "RETRIEVAL_SOURCES": "qa,facts",
         "CONTEXT_BUDGET_TOKENS": "100000",
     }
     base.update(env)
@@ -243,8 +242,9 @@ def test_prune_drops_the_invented_sentence_without_a_retry(
     answer = answer_turn(
         "What kind of work do you do?",
         [],
-        _settings(RETRIEVAL_SOURCES="none"),
+        _settings(),
         clients=client,
+        retrieve_fn=lambda *_args, **_kwargs: [],
     )
     assert client.chat.completions.calls == 1
     assert answer.debug["repair"] == "prune"
@@ -274,8 +274,9 @@ def test_short_prune_retries_once_then_can_fall_back(
     answer = answer_turn(
         "What kind of work do you do?",
         [],
-        _settings(RETRIEVAL_SOURCES="none"),
+        _settings(),
         clients=client,
+        retrieve_fn=lambda *_args, **_kwargs: [],
     )
     assert client.chat.completions.calls == 2
     assert answer.debug["repair"] == "retry"
@@ -324,7 +325,7 @@ def test_stuff_mode_omits_the_no_match_notice(tmp_path) -> None:
     answer_turn(
         "Who are you?",
         [],
-        _settings(QA_MODE="stuff", RETRIEVAL_SOURCES="qa"),
+        _settings(QA_MODE="stuff"),
         clients=client,
         qa_path=qa,
         system_prompt="SYS",

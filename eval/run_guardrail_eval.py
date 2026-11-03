@@ -243,7 +243,6 @@ def run_case(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Guardrail eval")
     parser.add_argument("--cases", type=Path, default=CASES_PATH)
-    parser.add_argument("--sources", default=None)
     parser.add_argument("--qa-mode", default=None, choices=["retrieve", "stuff"])
     parser.add_argument("--tag", default="")
     parser.add_argument(
@@ -257,7 +256,6 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     settings = build_run_settings(
-        sources=args.sources,
         qa_mode=args.qa_mode,
         temperature=args.temperature,
         voice_samples=args.voice_samples,
@@ -274,8 +272,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     cases = load_cases(args.cases)
     print(
-        f"Config: sources={','.join(sorted(settings.retrieval_sources)) or 'none'} "
-        f"qa_mode={settings.qa_mode} voice_samples={settings.voice_samples} "
+        f"Config: qa_mode={settings.qa_mode} voice_samples={settings.voice_samples} "
         f"model={settings.llm_model} temperature={settings.llm_temperature}"
     )
     rows = []
