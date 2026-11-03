@@ -48,7 +48,7 @@ def load_chunks(path: Path = CHUNKS_PATH) -> list[dict[str, Any]]:
 
 
 def load_all_chunks(directory: Path = CHUNKS_DIR) -> list[dict[str, Any]]:
-    """Load every ``*.jsonl`` under the chunks directory (blog + Q&A)."""
+    """Load every ``*.jsonl`` under the chunks directory."""
     if not directory.is_dir():
         raise FileNotFoundError(f"chunks directory not found: {directory}")
     paths = sorted(directory.glob("*.jsonl"))
@@ -77,7 +77,7 @@ def chunk_metadata(chunk: dict[str, Any]) -> dict[str, Any]:
         "published_at": chunk.get("published_at", ""),
         "section": chunk.get("section", ""),
         "body": chunk.get("body", ""),
-        "source_type": chunk.get("source_type", "blog"),
+        "source_type": chunk.get("source_type", ""),
         "embed_text": chunk.get("embed_text", ""),
     }
     for key in ("entry_id", "kind", "phrasing", "entry_content_hash"):

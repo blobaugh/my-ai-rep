@@ -273,7 +273,6 @@ def test_knowledge_text_matches_full_and_summary(tmp_path: Path, monkeypatch: py
         load_settings(environ={"FACTS_IN_PROMPT": "summary", "RETRIEVAL_SOURCES": "qa,facts"}),
         clients=_Client(),
         retrieve_fn=retrieve,
-        today=__import__("datetime").date(2026, 10, 22),
     )
     knowledge = summary.debug["knowledge_text"]
     assert "Opening paragraph about Ben." in knowledge
@@ -291,7 +290,6 @@ def test_knowledge_text_matches_full_and_summary(tmp_path: Path, monkeypatch: py
         load_settings(environ={"FACTS_IN_PROMPT": "full", "RETRIEVAL_SOURCES": "qa,facts"}),
         clients=_Client(),
         retrieve_fn=retrieve,
-        today=__import__("datetime").date(2026, 10, 22),
     )
     full_knowledge = full.debug["knowledge_text"]
     assert "Secret studio bullet." in full_knowledge

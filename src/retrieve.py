@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from src.config import load_embed_config, load_settings
+from src.config import KNOWN_SOURCES, load_embed_config, load_settings
 from src.embeddings import EmbedConfig, embed_texts
 from src.vector_store import NumpyVectorStore, SearchHit, VectorStore
 
@@ -296,11 +296,11 @@ def main(argv: list[str] | None = None) -> int:
             settings = settings.with_overrides(retrieval_min_score=args.min_score)
         if args.sources is not None:
             parsed = parse_retrieval_sources(args.sources) or set()
-            unknown = sorted(part for part in parsed if part not in {"qa", "blog"})
+            unknown = sorted(part for part in parsed if part not in KNOWN_SOURCES)
             if unknown:
                 raise ValueError(
                     "RETRIEVAL_SOURCES has unknown source type "
-                    f"{unknown[0]!r}; expected qa or blog"
+                    f"{unknown[0]!r}; expected qa or facts"
                 )
             settings = settings.with_overrides(retrieval_sources=frozenset(parsed))
             source_types: set[str] | None = set(settings.retrieval_sources)

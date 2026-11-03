@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 
 from src.embeddings import EmbedConfig
 
-KNOWN_SOURCES = frozenset({"qa", "facts", "blog"})
+KNOWN_SOURCES = frozenset({"qa", "facts"})
 QA_MODES = frozenset({"retrieve", "stuff"})
 QA_EMBED_MODES = frozenset({"question_and_answer", "question_only", "multi"})
 QUERY_MODES = frozenset({"auto", "turns"})
@@ -72,9 +72,6 @@ class Settings:
     context_budget_tokens: int = 7000
     qa_mode: str = "retrieve"
     voice_samples: str = "off"
-    source_stale_years: int = 3
-    blog_base_url: str = ""
-    cms_graphql_url: str = ""
     log_level: str = "WARNING"
     log_turns: str = "off"
     verify_prune_min_sentences: int = 2
@@ -130,9 +127,6 @@ class Settings:
             "CONTEXT_BUDGET_TOKENS": self.context_budget_tokens,
             "QA_MODE": self.qa_mode,
             "VOICE_SAMPLES": self.voice_samples,
-            "SOURCE_STALE_YEARS": self.source_stale_years,
-            "BLOG_BASE_URL": self.blog_base_url,
-            "CMS_GRAPHQL_URL": self.cms_graphql_url,
             "LOG_LEVEL": self.log_level,
             "LOG_TURNS": self.log_turns,
             "VERIFY_PRUNE_MIN_SENTENCES": self.verify_prune_min_sentences,
@@ -349,12 +343,9 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
         context_budget_tokens=_int(data, "CONTEXT_BUDGET_TOKENS", 7000, minimum=0),
         qa_mode=qa_mode,
         voice_samples=voice,
-        source_stale_years=_int(data, "SOURCE_STALE_YEARS", 3, minimum=0),
-        blog_base_url=_str(data, "BLOG_BASE_URL", ""),
         bot_name=_str(data, "BOT_NAME", "Bot"),
         human_name=_str(data, "HUMAN_NAME", ""),
         topic_leak_words=_word_list(data, "TOPIC_LEAK_WORDS"),
-        cms_graphql_url=_str(data, "CMS_GRAPHQL_URL", ""),
         log_level=log_level,
         log_turns=log_turns,
         verify_prune_min_sentences=_int(
@@ -466,7 +457,7 @@ def _sources(data: Mapping[str, str]) -> frozenset[str]:
     if unknown:
         raise ValueError(
             f"RETRIEVAL_SOURCES has unknown source type {unknown[0]!r}; "
-            "expected qa, facts, or blog"
+            "expected qa or facts"
         )
     return frozenset(parts)
 

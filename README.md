@@ -1,6 +1,6 @@
 # BenBot
 
-An AI that speaks as the person who runs it. Their facts come from the content files. Extra instructions go in `prompts/system.md`. `BOT_NAME` and `HUMAN_NAME` in `.env` fill the greeting and the fixed replies. Blog content is ingested from Payload CMS into local markdown for later embedding and chat grounding.
+An AI that speaks as the person who runs it. Their facts come from the content files. Extra instructions go in `prompts/system.md`. `BOT_NAME` and `HUMAN_NAME` in `.env` fill the greeting and the fixed replies.
 
 ## Requirements
 
@@ -16,15 +16,11 @@ pip install -e ".[dev]"
 # or: pip install python-dotenv openai pytest ruff
 ```
 
-## Ingest
+## Knowledge
 
 ```bash
-python -m src.fetch_articles      # → data/raw/articles.json
-python -m src.convert_articles    # → content/blog/*.md + data/reports/short_articles.txt
-python -m src.chunk_articles      # → data/chunks/chunks.jsonl
-python -m src.chunk_articles --show anchored-in-silence
-python -m src.qa                  # → data/chunks/qa_chunks.jsonl (from content/qa.md)
-python -m src.index_chunks        # → data/index/{vectors.npy,index.json} (all *.jsonl)
+python -m src.qa                  # → data/chunks/qa_chunks.jsonl and facts_chunks.jsonl
+python -m src.index_chunks        # → data/index/{vectors.npy,index.json}
 python -m src.retrieve "What does AI-first mean to you?" --sources qa
 python -m eval.run_retrieval_eval
 python -m eval.run_qa_retrieval_eval
@@ -34,7 +30,7 @@ python -m eval.run_guardrail_eval --sources qa
 python -m eval.compare_runs data/eval/guardrail_*.json
 ```
 
-`content/` and `data/` are gitignored (private local corpus). Set `BLOG_BASE_URL` and embedding vars in `.env` (see `.env.example`).
+`content/` and `data/` are gitignored (private local corpus). Set the embedding vars in `.env` (see `.env.example`). Put a link in a Q&A or facts entry when you want the bot to be able to repeat that exact URL.
 
 ### Q&A knowledge file
 
@@ -58,7 +54,7 @@ CONTENT_DIR=examples QA_MODE=stuff RETRIEVAL_SOURCES=none python -m src.chat --a
 
 `CONTENT_DIR` defaults to `content`. The loader uses `{name}.md` in that directory, then `{name}.example.md`.
 
-`RETRIEVAL_SOURCES` selects which indexed source types are searched (`qa` by default; add `blog` to include posts). `QA_MODE=stuff` puts every Q&A entry in the system prompt instead of retrieving them.
+`RETRIEVAL_SOURCES` selects which indexed source types are searched (`qa` and `facts`). `QA_MODE=stuff` puts every Q&A entry in the system prompt instead of retrieving them.
 
 ### Chat context window
 

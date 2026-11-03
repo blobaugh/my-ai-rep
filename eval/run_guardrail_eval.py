@@ -264,9 +264,7 @@ def main(argv: list[str] | None = None) -> int:
         ignore_min_score=args.ignore_min_score,
     )
     system = load_system_prompt(
-        stale_years=settings.source_stale_years,
         voice_samples=settings.voice_samples == "on",
-        include_blog="blog" in settings.retrieval_sources,
         facts_in_prompt=settings.facts_in_prompt,
         bot_name=settings.bot_name,
         human_name=settings.human_name,

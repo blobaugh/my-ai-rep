@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 
 import pytest
@@ -126,20 +125,11 @@ def test_qa_answer_reaches_prompt_unchanged() -> None:
         history=[],
         question="What is your name?",
         chunks=[chunk],
-        today=date(2024, 1, 1),
-        stale_years=3,
     )
     assert entry.answer in messages[-1]["content"]
     assert "Their own answer to:" in messages[-1]["content"]
-    label = format_chunk_label(
-        entry.question,
-        "",
-        today=date(2024, 1, 1),
-        stale_years=3,
-        source_type="qa",
-    )
+    label = format_chunk_label(entry.question)
     assert label == f"Their own answer to: {entry.question}"
-    assert "Older than" not in label
 
 
 def test_stuff_budget_rejects_when_too_large() -> None:

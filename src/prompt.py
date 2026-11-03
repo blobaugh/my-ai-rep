@@ -5,16 +5,13 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Sequence
-from datetime import date
 from pathlib import Path
 from typing import Any, Protocol
 
-from src.sources import is_older_than_years, parse_published_date
-
 logger = logging.getLogger(__name__)
 
-BLOG_EXCERPTS_START = "<<<BLOG_EXCERPTS>>>"
-BLOG_EXCERPTS_END = "<<<END_BLOG_EXCERPTS>>>"
+KNOWLEDGE_START = "<<<KNOWLEDGE>>>"
+KNOWLEDGE_END = "<<<END_KNOWLEDGE>>>"
 NO_MATCHING_EXCERPTS = "No matching entries were found for this question."
 
 # Documented heuristic: ~4 characters per token for English prose.
@@ -27,47 +24,24 @@ class PromptChunk(Protocol):
     id: str
     title: str
     body: str
-    published_at: str
     score: float
-
-
-def _chunk_source_type(chunk: PromptChunk) -> str:
-    return str(getattr(chunk, "source_type", "") or "blog")
 
 
 def sanitize_chunk_text(text: str) -> str:
     """Neutralize delimiter strings so chunk body cannot close the block early."""
-    cleaned = text.replace(BLOG_EXCERPTS_START, "[BLOG_EXCERPTS]")
-    cleaned = cleaned.replace(BLOG_EXCERPTS_END, "[END_BLOG_EXCERPTS]")
+    cleaned = text.replace(KNOWLEDGE_START, "[KNOWLEDGE]")
+    cleaned = cleaned.replace(KNOWLEDGE_END, "[END_KNOWLEDGE]")
     return cleaned
 
 
-def format_chunk_label(
-    title: str,
-    published_at: str,
-    *,
-    today: date,
-    stale_years: int,
-    source_type: str = "blog",
-) -> str:
-    """Label one excerpt. Q&A has no date/age; blog posts keep published/stale."""
-    if source_type in {"qa", "facts"}:
-        return f"Their own answer to: {title}"
-    published = parse_published_date(published_at)
-    date_str = published.isoformat() if published else "unknown"
-    label = f"Blog post: {title} | Published: {date_str}"
-    if published and is_older_than_years(
-        published, today=today, stale_years=stale_years
-    ):
-        label += f" | Older than {stale_years} years"
-    return label
+def format_chunk_label(title: str) -> str:
+    """Label one knowledge entry. The words are the person's own."""
+    return f"Their own answer to: {title}"
 
 
 def format_excerpts_block(
     chunks: Sequence[PromptChunk],
     *,
-    today: date,
-    stale_years: int,
     announce_no_match: bool = True,
 ) -> str:
     """Wrap labeled excerpts in delimiters, or the no-match notice.
@@ -79,22 +53,16 @@ def format_excerpts_block(
         if not announce_no_match:
             return ""
         return (
-            f"{BLOG_EXCERPTS_START}\n"
+            f"{KNOWLEDGE_START}\n"
             f"{NO_MATCHING_EXCERPTS}\n"
-            f"{BLOG_EXCERPTS_END}"
+            f"{KNOWLEDGE_END}"
         )
-    parts: list[str] = [BLOG_EXCERPTS_START]
+    parts: list[str] = [KNOWLEDGE_START]
     for chunk in chunks:
-        label = format_chunk_label(
-            chunk.title,
-            chunk.published_at,
-            today=today,
-            stale_years=stale_years,
-            source_type=_chunk_source_type(chunk),
-        )
+        label = format_chunk_label(chunk.title)
         body = sanitize_chunk_text(chunk.body)
         parts.append(f"{label}\n{body}")
-    parts.append(BLOG_EXCERPTS_END)
+    parts.append(KNOWLEDGE_END)
     return "\n\n".join(parts)
 
 
@@ -102,15 +70,11 @@ def build_user_content(
     question: str,
     chunks: Sequence[PromptChunk],
     *,
-    today: date,
-    stale_years: int,
     announce_no_match: bool = True,
 ) -> str:
     """User message: excerpts block, then the question."""
     block = format_excerpts_block(
         chunks,
-        today=today,
-        stale_years=stale_years,
         announce_no_match=announce_no_match,
     )
     lead = (
@@ -130,8 +94,6 @@ def build_messages(
     history: Sequence[dict[str, str]],
     question: str,
     chunks: Sequence[PromptChunk],
-    today: date,
-    stale_years: int,
     announce_no_match: bool = True,
 ) -> list[dict[str, str]]:
     """Cache-friendly layout: system, plain history, then excerpts + question."""
@@ -146,8 +108,6 @@ def build_messages(
             "content": build_user_content(
                 question,
                 chunks,
-                today=today,
-                stale_years=stale_years,
                 announce_no_match=announce_no_match,
             ),
         }
@@ -305,8 +265,6 @@ def apply_budget_guard(
     history: Sequence[dict[str, str]],
     question: str,
     chunks: Sequence[PromptChunk],
-    today: date,
-    stale_years: int,
     budget_tokens: int,
     announce_no_match: bool = True,
 ) -> tuple[list[dict[str, str]], list[PromptChunk], list[str]]:
@@ -327,8 +285,6 @@ def apply_budget_guard(
             history=working_history,
             question=question,
             chunks=working_chunks,
-            today=today,
-            stale_years=stale_years,
             announce_no_match=announce_no_match,
         )
 
@@ -361,27 +317,20 @@ def apply_budget_guard(
 PROMPT_PATH = Path("prompts/system.md")
 ABOUT_PATH = Path("content/about-ben.md")
 VOICE_SAMPLES_PATH = Path("prompts/voice_samples.md")
-BLOG_RULES_TEXT = (
-    "How-to and technical questions are in scope when those excerpts cover them — "
-    "answer in the first person from the posts. "
-)
 
 
 def load_system_prompt(
     *,
-    stale_years: int,
     prompt_path: Path = PROMPT_PATH,
     about_path: Path = ABOUT_PATH,
     voice_samples_path: Path = VOICE_SAMPLES_PATH,
     voice_samples: bool = False,
-    include_blog: bool = False,
     facts_in_prompt: str = "full",
     bot_name: str | None = None,
     human_name: str | None = None,
 ) -> str:
     """Fill template placeholders. Voice samples sit after the rules.
 
-    Blog how-to wording is inserted only when retrieval includes blog posts.
     ``facts_in_prompt`` is ``full`` (the whole facts file) or ``summary``
     (the opening paragraph only). Names and the fixed replies come from
     settings unless the caller passes them.
@@ -412,13 +361,10 @@ def load_system_prompt(
         voice_block = voice_samples_path.read_text(encoding="utf-8").rstrip() + "\n\n"
     else:
         voice_block = ""
-    blog = BLOG_RULES_TEXT if include_blog else ""
     return (
         template.replace("{{FACTS}}", about)
         .replace("{{ABOUT_BEN}}", about)
-        .replace("{{STALE_YEARS}}", str(stale_years))
         .replace("{{VOICE_SAMPLES}}", voice_block)
-        .replace("{{BLOG_RULES}}", blog)
         .replace("{{BOT_NAME}}", lines.bot_name)
         .replace("{{HUMAN_NAME}}", lines.human_label)
         .replace("{{MISSING_DETAIL}}", lines.missing)

@@ -11,8 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from src.chunking import word_count
-
 QA_PATH = Path("content/qa.md")
 FACTS_PATH = Path("content/facts.md")
 QA_CHUNKS_PATH = Path("data/chunks/qa_chunks.jsonl")
@@ -116,7 +114,7 @@ def entry_to_chunk(
         "embed_text": make_qa_embed_text(
             entry.question, entry.answer, mode=embed_mode
         ),
-        "word_count": word_count(body),
+        "word_count": len(re.findall(r"\S+", body)),
     }
 
 
@@ -125,7 +123,7 @@ def expand_multi_vectors(
 ) -> list[dict[str, Any]]:
     """One vector per phrasing plus one question-plus-answer vector.
 
-    Blog rows pass through. Each new row keeps the entry body and stores
+    Rows that are not Q&A or facts pass through. Each new row keeps the entry body and stores
     ``entry_id``, ``kind`` (``q`` or ``qa``), the phrasing, and its hash.
     """
     if q_embed_kind not in {"query", "document"}:

@@ -334,8 +334,6 @@ def load_rule_ngrams(
         .replace("{{FACTS}}", " ")
         .replace("{{ABOUT_BEN}}", " ")
         .replace("{{VOICE_SAMPLES}}", " ")
-        .replace("{{BLOG_RULES}}", " ")
-        .replace("{{STALE_YEARS}}", " ")
     )
     return rule_ngrams(
         text, omit=(lines.missing, lines.off_topic, lines.identity)

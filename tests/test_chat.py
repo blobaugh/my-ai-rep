@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -92,7 +91,7 @@ def _settings(**env: str):
         "LLM_MODEL": "fake",
         "LLM_BASE_URL": "http://example",
         "LLM_API_KEY": "x",
-        "RETRIEVAL_SOURCES": "qa,blog",
+        "RETRIEVAL_SOURCES": "qa,facts",
         "CONTEXT_BUDGET_TOKENS": "100000",
     }
     base.update(env)
@@ -113,7 +112,7 @@ def _chunk(
         published_at=published,
         section="",
         body=f"Body of {slug}",
-        source_type="blog",
+        source_type="qa",
         score=score,
         content_hash=id_,
     )
@@ -133,21 +132,19 @@ def test_answer_includes_sources_and_plain_history() -> None:
         _settings(),
         clients=client,
         retrieve_fn=fake_retrieve,
-        today=date(2024, 6, 1),
         system_prompt="SYS",
     )
     reply = reply_answer.text
     sources = reply_answer.sources_block
     history = append_turn([], "How do I set up an nginx proxy?", reply, 6)
     assert "reverse proxy" in reply.lower() or reply
-    assert sources.startswith("From my blog:")
-    assert "older than 3 years" in sources
+    assert sources == ""
     assert history[0]["role"] == "user"
     assert history[0]["content"] == "How do I set up an nginx proxy?"
     assert "Body of" not in history[0]["content"]
     # Prompt had excerpts for the model, not in stored history.
     assert client.chat.completions.last_messages is not None
-    assert "BLOG_EXCERPTS" in client.chat.completions.last_messages[-1]["content"]
+    assert "KNOWLEDGE" in client.chat.completions.last_messages[-1]["content"]
 
 
 def test_follow_up_retrieval_query_includes_prior_topic() -> None:
@@ -168,7 +165,6 @@ def test_follow_up_retrieval_query_includes_prior_topic() -> None:
         _settings(RETRIEVAL_QUERY_TURNS="2"),
         clients=client,
         retrieve_fn=fake_retrieve,
-        today=date(2024, 1, 1),
         system_prompt="S",
     )
     assert "nginx proxy setup" in seen[0]
@@ -186,7 +182,6 @@ def test_min_score_filters_chunks_no_sources() -> None:
         _settings(RETRIEVAL_MIN_SCORE="0.5"),
         clients=client,
         retrieve_fn=fake_retrieve,
-        today=date(2024, 1, 1),
         system_prompt="S",
     )
     reply = reply_answer.text
@@ -351,16 +346,13 @@ def test_integration_ollama_one_turn() -> None:
     settings = load_settings()
     client = make_chat_client(settings)
     system = load_system_prompt(
-        stale_years=settings.source_stale_years,
         voice_samples=settings.voice_samples == "on",
-        include_blog="blog" in settings.retrieval_sources,
     )
     answer = answer_turn(
         "What's your background?",
         [],
         settings,
         clients=client,
-        today=date.today(),
         system_prompt=system,
     )
     assert answer.text.strip()

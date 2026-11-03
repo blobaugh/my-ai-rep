@@ -51,9 +51,7 @@ def main() -> int:
                     mark = "PASS" if row["flags_ok"] else "FAIL"
                     print(f"  [{mark}] {row['question']}: {row['reply']}", flush=True)
             system = load_system_prompt(
-                stale_years=settings.source_stale_years,
                 voice_samples=settings.voice_samples == "on",
-                include_blog="blog" in settings.retrieval_sources,
                 bot_name=settings.bot_name,
                 human_name=settings.human_name,
             )

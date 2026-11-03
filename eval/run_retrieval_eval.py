@@ -129,9 +129,7 @@ def main(argv: list[str] | None = None) -> int:
             result["model"] = settings.llm_model
             result["prompt_hash"] = prompt_hash(
                 load_system_prompt(
-                    stale_years=settings.source_stale_years,
                     voice_samples=settings.voice_samples == "on",
-                    include_blog="blog" in settings.retrieval_sources,
                 )
             )
             result["git_commit"] = git_commit()

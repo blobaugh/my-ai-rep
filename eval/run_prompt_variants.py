@@ -69,10 +69,8 @@ def main() -> int:
             continue
         path = Path(f"prompts/variants/{name}.md")
         system = load_system_prompt(
-            stale_years=settings.source_stale_years,
             prompt_path=path,
             voice_samples=settings.voice_samples == "on",
-            include_blog="blog" in settings.retrieval_sources,
         )
         ngrams = rule_ngrams(path.read_text(encoding="utf-8"))
         print(f"=== {name} regression ===", flush=True)

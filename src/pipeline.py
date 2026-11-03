@@ -7,7 +7,6 @@ import logging
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +33,6 @@ from src.prompt import (
 )
 from src.qa import QA_PATH, parse_qa, stuff_qa_into_system
 from src.retrieve import RetrievedChunk, retrieve_timed
-from src.sources import build_sources
 from src.verify import (
     ENTRY_BREAK,
     corrective_note,
@@ -62,10 +60,6 @@ class Answer:
     finish_reason: str | None = None
 
 
-def today_utc() -> date:
-    return datetime.now(timezone.utc).date()
-
-
 def make_chat_client(settings: Settings) -> OpenAI:
     return OpenAI(base_url=settings.llm_base_url, api_key=settings.llm_api_key)
 
@@ -89,7 +83,6 @@ def answer_turn(
     settings: Settings,
     *,
     clients: Any = None,
-    today: date | None = None,
     retrieve_fn: Callable[..., list[RetrievedChunk]] | None = None,
     system_prompt: str | None = None,
     on_delta: Callable[[str], None] | None = None,
@@ -97,7 +90,6 @@ def answer_turn(
 ) -> Answer:
     """Validate, retrieve, assemble, and call the model once."""
     started = time.perf_counter()
-    day = today or today_utc()
     if len(question) > MAX_MESSAGE_CHARS:
         answer = _skipped(settings, TOO_LONG, "invalid", question, started, reason="too_long")
         _log_turn(settings, question, answer)
@@ -148,8 +140,6 @@ def answer_turn(
         history=list(history),
         question=cleaned,
         chunks=chunks,
-        today=day,
-        stale_years=settings.source_stale_years,
         budget_tokens=settings.context_budget_tokens,
         announce_no_match=settings.qa_mode != "stuff",
     )
@@ -226,9 +216,6 @@ def answer_turn(
         removed = checked.removed
         model_calls = checked.model_calls
 
-    sources = build_sources(
-        used_chunks, today=day, stale_years=settings.source_stale_years
-    )
     debug = {
         "query_used": query,
         "retrieved": retrieved,
@@ -258,7 +245,7 @@ def answer_turn(
         "removed_sentences": removed,
         "model_calls": model_calls,
     }
-    answer = Answer(text=text, sources_block=sources, debug=debug, finish_reason=finish)
+    answer = Answer(text=text, sources_block="", debug=debug, finish_reason=finish)
     _log_turn(settings, cleaned, answer)
     return answer
 
@@ -498,9 +485,7 @@ def _maybe_stuff(
     base = system_prompt
     if base is None:
         base = load_system_prompt(
-            stale_years=settings.source_stale_years,
             voice_samples=voice_samples_enabled(settings.voice_samples),
-            include_blog="blog" in settings.retrieval_sources,
             facts_in_prompt=settings.facts_in_prompt,
             about_path=about_path,
             bot_name=settings.bot_name,

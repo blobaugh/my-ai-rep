@@ -250,9 +250,7 @@ def main(argv: list[str] | None = None) -> int:
         "embed_model": settings.embed_model,
         "prompt_hash": prompt_hash(
             load_system_prompt(
-                stale_years=settings.source_stale_years,
                 voice_samples=settings.voice_samples == "on",
-                include_blog="blog" in settings.retrieval_sources,
             )
         ),
         "git_commit": git_commit(),
