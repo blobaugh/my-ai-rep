@@ -9,8 +9,7 @@ Windows stay inside one entry or one facts-file section. They do not cross
 an entry break or a markdown heading.
 
 What this cannot judge: a word that also appears somewhere in the knowledge
-("a few" versus "every", or "often" added to a real cruise sentence when that
-entry already says "often") can make an invented sentence look supported.
+can make an invented sentence look supported.
 Overlap does not check that a number or a frequency means the same thing.
 The faithfulness extractor still misses claims that have no number, name,
 date, or quote.
@@ -22,12 +21,10 @@ import re
 from dataclasses import dataclass, field
 
 from src.faithfulness import check_faithfulness
-from src.guards import GUARD_REDIRECT, IDENTITY_REPLY, MISSING_DETAIL
 
 # Recalibrated in BENBOT-15 on the passages in tests/test_verify.py.
 # Windowed good sentences score at least 0.875. Invented sentences the word
-# list does not already catch score at most 0.50 ("recently started keeping
-# bees", "AI-first as a mindset"). 0.55 sits in that gap. A sentence merged
+# list does not already catch score at most 0.50. 0.55 sits in that gap. A sentence merged
 # from several knowledge sentences can score under the threshold in one
 # window and above it when neighboring sentences are visible.
 SUPPORT_THRESHOLD = 0.55
@@ -68,8 +65,6 @@ CHARACTERIZATION_WORDS = (
     "for a while",
     "sometimes",
 )
-
-_EXEMPT = frozenset({MISSING_DETAIL, GUARD_REDIRECT, IDENTITY_REPLY})
 
 _WORD = re.compile(r"[a-z0-9']+")
 _STOP = frozenset(
@@ -332,16 +327,26 @@ def unsupported_characterizations(text: str, knowledge: str) -> list[str]:
     return found
 
 
-def verify_answer(answer: str, knowledge: str) -> Verification:
-    """Run faithfulness, characterization, and sentence-support checks."""
+def verify_answer(
+    answer: str,
+    knowledge: str,
+    *,
+    exempt: frozenset[str] | None = None,
+    name_stopwords: frozenset[str] | None = None,
+) -> Verification:
+    """Run faithfulness, characterization, and sentence-support checks.
+
+    ``exempt`` is the fixed visitor lines for this checkout. A blank set
+    exempts nothing.
+    """
     stripped = answer.strip()
-    if stripped in _EXEMPT:
+    if stripped in (exempt or frozenset()):
         return Verification(ok=True, sentence_scores=[SentenceScore(stripped, 1.0, False)])
     # Nothing was sent to compare against, so the checks have no evidence.
     if not knowledge.strip():
         return Verification(ok=True, sentence_scores=[SentenceScore(stripped, 1.0, False)])
 
-    claims = check_faithfulness(stripped, knowledge)
+    claims = check_faithfulness(stripped, knowledge, extra_stopwords=name_stopwords)
     claim_texts = [token.text for token in claims.unsupported]
     characterizations = unsupported_characterizations(stripped, knowledge)
     char_pattern = _characterization_pattern(characterizations)

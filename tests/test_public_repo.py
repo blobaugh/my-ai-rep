@@ -15,6 +15,22 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "check_public_safe.sh"
 
 
+def test_product_source_does_not_name_a_person() -> None:
+    banned = ("Ben Lobaugh", "ben.lobaugh", "sailing", "benbot-llama", "Ben's ")
+    hits: list[str] = []
+    for folder in ("src", "prompts"):
+        for path in (ROOT / folder).rglob("*"):
+            if path.suffix not in {".py", ".md"} or not path.is_file():
+                continue
+            if path.name == "voice_samples.md":
+                continue
+            text = path.read_text(encoding="utf-8")
+            for word in banned:
+                if word in text:
+                    hits.append(f"{path.relative_to(ROOT)}:{word}")
+    assert hits == []
+
+
 def test_content_dir_blank_means_content() -> None:
     settings = load_settings(environ={"CONTENT_DIR": "  "})
     assert settings.content_dir == "content"

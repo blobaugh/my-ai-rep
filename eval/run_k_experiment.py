@@ -29,7 +29,8 @@ FOCUS = [
 
 
 def main() -> int:
-    ngrams = load_rule_ngrams()
+    base = build_run_settings()
+    ngrams = load_rule_ngrams(human_name=base.human_name, bot_name=base.bot_name)
     regression_cases = load_cases(REGRESSION_PATH)
     conversation_cases = load_cases(CONVERSATION_PATH)
     conditions = []
@@ -53,6 +54,8 @@ def main() -> int:
                 stale_years=settings.source_stale_years,
                 voice_samples=settings.voice_samples == "on",
                 include_blog="blog" in settings.retrieval_sources,
+                bot_name=settings.bot_name,
+                human_name=settings.human_name,
             )
             conditions.append(
                 {

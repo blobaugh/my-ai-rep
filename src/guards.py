@@ -9,16 +9,7 @@ or "Tell me about a system update you led" must not match.
 from __future__ import annotations
 
 import re
-
-GUARD_REDIRECT = (
-    "I can only answer questions about Ben, based on what he's shared with me. "
-    "Want to hear about his work, sailing, or how to reach him?"
-)
-MISSING_DETAIL = "I don't have that detail. You can ask the real Ben directly."
-IDENTITY_REPLY = (
-    "I'm an AI that speaks for Ben. Ask me anything about him, "
-    "or reach out to the real Ben directly."
-)
+from dataclasses import dataclass
 
 # (name, pattern). First match wins. Patterns are case-insensitive.
 _OVERRIDE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -125,45 +116,143 @@ _OVERRIDE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
 )
 
-_IDENTITY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    (
-        "are_you_nonhuman",
-        re.compile(
-            r"\bare you(?:\s+really)?\s+(?:a\s+|an\s+)?"
-            r"(?:human|robot|bot|ai|person|machine|real(?:\s+person)?)"
-            r"\b(?!\s+[A-Za-z])",
-            re.IGNORECASE,
-        ),
+_ARE_YOU_NONHUMAN = (
+    "are_you_nonhuman",
+    re.compile(
+        r"\bare you(?:\s+really)?\s+(?:a\s+|an\s+)?"
+        r"(?:human|robot|bot|ai|person|machine|real(?:\s+person)?)"
+        r"\b(?!\s+[A-Za-z])",
+        re.IGNORECASE,
     ),
-    (
-        "are_you_ben",
-        re.compile(r"\bare you(?:\s+really)?\s+ben\b", re.IGNORECASE),
+)
+_TALKING_TO_IDENTITY = (
+    "talking_to_identity",
+    re.compile(
+        r"\bam i\s+(?:talking|speaking|chatting)\s+(?:to|with)\s+"
+        r"(?:a\s+|an\s+)?(?:real\s+)?(?:person|human|bot|ai)\b",
+        re.IGNORECASE,
     ),
-    (
-        "is_this_ben",
-        re.compile(r"\bis this(?:\s+really)?\s+ben\b", re.IGNORECASE),
-    ),
-    (
-        "talking_to_identity",
-        re.compile(
-            r"\bam i\s+(?:talking|speaking|chatting)\s+(?:to|with)\s+"
-            r"(?:a\s+|an\s+)?(?:real\s+)?(?:person|human|bot|ai|ben)\b",
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        "who_am_i_talking_to",
-        re.compile(
-            r"\bwho am i\s+(?:talking|speaking|chatting)\s+(?:to|with)\b",
-            re.IGNORECASE,
-        ),
+)
+_WHO_AM_I_TALKING_TO = (
+    "who_am_i_talking_to",
+    re.compile(
+        r"\bwho am i\s+(?:talking|speaking|chatting)\s+(?:to|with)\b",
+        re.IGNORECASE,
     ),
 )
 
 
-def match_identity_guard(message: str) -> str | None:
+@dataclass(frozen=True)
+class PersonaLines:
+    """Visitor-facing lines built from the configured names."""
+
+    human_name: str
+    bot_name: str
+    human_label: str
+    missing: str
+    off_topic: str
+    identity: str
+    banner: str
+    empty_ask: str
+
+
+def persona_lines(human_name: str = "", bot_name: str = "") -> PersonaLines:
+    """Fixed replies for whoever this checkout represents.
+
+    A blank human name speaks of "the person I represent" and does not add
+    a name to the identity patterns. Extra voice belongs in the prompt file.
+    """
+    human = " ".join(human_name.split())
+    bot = " ".join(bot_name.split()) or "Bot"
+    if human:
+        return PersonaLines(
+            human_name=human,
+            bot_name=bot,
+            human_label=human,
+            missing=f"I don't have that detail. You can ask the real {human} directly.",
+            off_topic=(
+                f"I can only answer questions about {human}, based on what "
+                "they've shared with me. Want to hear about their work, or "
+                "how to reach them?"
+            ),
+            identity=(
+                f"I'm an AI that speaks for {human}. Ask me anything about them, "
+                f"or reach out to the real {human} directly."
+            ),
+            banner=(
+                f"Hi, I'm {bot}, an AI that speaks for {human}. "
+                "Ask me anything about them."
+            ),
+            empty_ask=f"Ask me something about {human}.",
+        )
+    return PersonaLines(
+        human_name="",
+        bot_name=bot,
+        human_label="the person I represent",
+        missing="I don't have that detail. You can ask them directly.",
+        off_topic=(
+            "I can only answer questions about the person I represent, "
+            "based on what they've shared with me."
+        ),
+        identity=(
+            "I'm an AI that speaks for the person I represent. "
+            "Ask me anything about them, or reach out to them directly."
+        ),
+        banner=(
+            f"Hi, I'm {bot}, an AI that speaks for the person I represent. "
+            "Ask me anything about them."
+        ),
+        empty_ask="Ask me something.",
+    )
+
+
+def exempt_replies(human_name: str = "", bot_name: str = "") -> frozenset[str]:
+    """Lines verification must accept unchanged."""
+    lines = persona_lines(human_name, bot_name)
+    return frozenset({lines.missing, lines.off_topic, lines.identity})
+
+
+def _identity_patterns(human_name: str) -> tuple[tuple[str, re.Pattern[str]], ...]:
+    patterns: list[tuple[str, re.Pattern[str]]] = [
+        _ARE_YOU_NONHUMAN,
+        _TALKING_TO_IDENTITY,
+        _WHO_AM_I_TALKING_TO,
+    ]
+    name = " ".join(human_name.split())
+    if not name:
+        return tuple(patterns)
+    escaped = re.escape(name)
+    patterns[1:1] = [
+        (
+            "are_you_named",
+            re.compile(
+                rf"\bare you(?:\s+really)?\s+{escaped}\b",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "is_this_named",
+            re.compile(
+                rf"\bis this(?:\s+really)?\s+{escaped}\b",
+                re.IGNORECASE,
+            ),
+        ),
+    ]
+    patterns.append(
+        (
+            "talking_to_named",
+            re.compile(
+                rf"\bam i\s+(?:talking|speaking|chatting)\s+(?:to|with)\s+{escaped}\b",
+                re.IGNORECASE,
+            ),
+        )
+    )
+    return tuple(patterns)
+
+
+def match_identity_guard(message: str, human_name: str = "") -> str | None:
     """Return the pattern name when the visitor is asking what the bot is."""
-    return _first(_IDENTITY_PATTERNS, message)
+    return _first(_identity_patterns(human_name), message)
 
 
 def match_instruction_guard(message: str) -> str | None:
@@ -171,12 +260,13 @@ def match_instruction_guard(message: str) -> str | None:
     return _first(_OVERRIDE_PATTERNS, message)
 
 
-def match_guard(message: str) -> tuple[str, str] | None:
+def match_guard(message: str, human_name: str = "") -> tuple[str, str] | None:
     """Return (kind, pattern) for an identity or override match.
 
     kind is ``identity`` or ``override``. Identity is checked first.
+    A configured human name adds "are you <name>" style questions.
     """
-    identity = match_identity_guard(message)
+    identity = match_identity_guard(message, human_name)
     if identity:
         return ("identity", identity)
     override = match_instruction_guard(message)

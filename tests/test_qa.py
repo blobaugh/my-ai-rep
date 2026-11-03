@@ -130,7 +130,7 @@ def test_qa_answer_reaches_prompt_unchanged() -> None:
         stale_years=3,
     )
     assert entry.answer in messages[-1]["content"]
-    assert "Ben's own answer to:" in messages[-1]["content"]
+    assert "Their own answer to:" in messages[-1]["content"]
     label = format_chunk_label(
         entry.question,
         "",
@@ -138,7 +138,7 @@ def test_qa_answer_reaches_prompt_unchanged() -> None:
         stale_years=3,
         source_type="qa",
     )
-    assert label == f"Ben's own answer to: {entry.question}"
+    assert label == f"Their own answer to: {entry.question}"
     assert "Older than" not in label
 
 

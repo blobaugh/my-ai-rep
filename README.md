@@ -1,6 +1,6 @@
 # BenBot
 
-An AI that speaks as the person who runs it. Their facts come from the content files. Extra instructions go in `prompts/system.md`. `BOT_NAME` and `HUMAN_NAME` in `.env` fill the greeting and the fixed replies.
+An AI that speaks as the person who runs it. Their facts come from the content files. Extra instructions go in `prompts/system.md`. `BOT_NAME` and `HUMAN_NAME` in `.env` fill the greeting and the fixed replies. Blog content is ingested from Payload CMS into local markdown for later embedding and chat grounding.
 
 ## Requirements
 
@@ -16,21 +16,25 @@ pip install -e ".[dev]"
 # or: pip install python-dotenv openai pytest ruff
 ```
 
-## Knowledge
+## Ingest
 
 ```bash
-python -m src.qa                  # → data/chunks/qa_chunks.jsonl and facts_chunks.jsonl
-python -m src.index_chunks        # → data/index/{vectors.npy,index.json}
-python -m src.retrieve "What does AI-first mean to you?"
+python -m src.fetch_articles      # → data/raw/articles.json
+python -m src.convert_articles    # → content/blog/*.md + data/reports/short_articles.txt
+python -m src.chunk_articles      # → data/chunks/chunks.jsonl
+python -m src.chunk_articles --show anchored-in-silence
+python -m src.qa                  # → data/chunks/qa_chunks.jsonl (from content/qa.md)
+python -m src.index_chunks        # → data/index/{vectors.npy,index.json} (all *.jsonl)
+python -m src.retrieve "What does AI-first mean to you?" --sources qa
 python -m eval.run_retrieval_eval
 python -m eval.run_qa_retrieval_eval
 python -m src.chat
 python -m src.chat --debug
-python -m eval.run_guardrail_eval
+python -m eval.run_guardrail_eval --sources qa
 python -m eval.compare_runs data/eval/guardrail_*.json
 ```
 
-`content/` and `data/` are gitignored (private local corpus). Set the embedding vars in `.env` (see `.env.example`). Put a link in a Q&A or facts entry when you want the bot to be able to repeat that exact URL.
+`content/` and `data/` are gitignored (private local corpus). Set `BLOG_BASE_URL` and embedding vars in `.env` (see `.env.example`).
 
 ### Q&A knowledge file
 
@@ -44,17 +48,17 @@ source: bookkeeping only — never shown to the model
 review: draft | approved
 ```
 
-Fictional samples are committed under `examples/` (`about.example.md`, `hobby.example.md`, `facts.example.md`, `qa.example.md`). They describe Avery Quinn. Copy `about.example.md` to `content/about.md` and the other samples to `content/` without the `.example` suffix, replace them with your own writing, then `python -m src.qa && python -m src.index_chunks`.
-
-`content/about.md` is sent on every turn. Every other markdown file under `content/` is searched. A file with `##` entry ids and `Q:` lines is optional Q&A. Any other file is split on headings and searched as prose. The closest `RETRIEVAL_K` passages (default 4) go in the user message.
+Fictional samples are committed under `examples/` (`about-ben.example.md`, `facts.example.md`, `qa.example.md`). They describe Avery Quinn. Copy them to `content/` without the `.example` suffix, replace with your own entries, then `python -m src.qa && python -m src.index_chunks`. A facts file may be named `about.md` or `about-ben.md`.
 
 A checkout that has no `content/` directory can run against the samples:
 
 ```bash
-CONTENT_DIR=examples python -m src.chat --ask "Who are you?"
+CONTENT_DIR=examples QA_MODE=stuff RETRIEVAL_SOURCES=none python -m src.chat --ask "Who are you?"
 ```
 
-`CONTENT_DIR` defaults to `content`. The about file is `{dir}/about.md`, then `{dir}/about.example.md`.
+`CONTENT_DIR` defaults to `content`. The loader uses `{name}.md` in that directory, then `{name}.example.md`.
+
+`RETRIEVAL_SOURCES` selects which indexed source types are searched (`qa` by default; add `blog` to include posts). `QA_MODE=stuff` puts every Q&A entry in the system prompt instead of retrieving them.
 
 ### Chat context window
 
@@ -69,23 +73,7 @@ ollama create rep-llama -f Modelfile
 
 Verify the effective context. `ollama show rep-llama` should list `num_ctx 8192`.
 
-Chat, retrieval, indexing, and evals all read settings from `src/config.py` (the only reader of `.env`). `python -m src.chat` prints them at startup. Commands: `/reset`, `/quit`, `/help`. `python -m src.chat --ask "question"` answers once with no history. `--debug` adds the retrieval list, `connection_used`, and `failover_active`.
-
-### Chat connections
-
-| Name | Default | Meaning |
-|---|---|---|
-| LLM_BASE_URL | http://localhost:11434/v1 | primary chat endpoint when `LLM_PRIMARY_*` is unset |
-| LLM_API_KEY | ollama | primary key; masked when printed |
-| LLM_MODEL | llama3.1:8b | primary model |
-| LLM_PRIMARY_BASE_URL, LLM_PRIMARY_API_KEY, LLM_PRIMARY_MODEL | unset | optional group that replaces the three names above |
-| LLM_PRIMARY_TIMEOUT_SECONDS | 120 | total time for one primary call |
-| LLM_SECONDARY_BASE_URL, LLM_SECONDARY_API_KEY, LLM_SECONDARY_MODEL | unset | optional backup connection; set all three or none |
-| LLM_SECONDARY_TIMEOUT_SECONDS | 120 | total time for one secondary call |
-| FAILOVER_RETRY_SECONDS | 300 | how long to stay on the secondary before trying the primary once |
-| FAILOVER_ON_HTTP_STATUS | unset | extra HTTP statuses that fail over. 429 and every 5xx already fail over |
-
-A blank value means unset. The connect timeout is 5 seconds and is not a setting. Failover runs on a connection failure, a timeout, HTTP 429, or any 5xx. Other HTTP errors stay on the connection that returned them unless their status is listed. The embedder does not fail over. See `docs/decisions/016-llm-failover.md`.
+Chat, retrieval, indexing, and evals all read settings from `src/config.py` (the only reader of `.env`). `python -m src.chat` prints them at startup. Commands: `/reset`, `/quit`, `/help`. `python -m src.chat --ask "question"` answers once with no history. `--debug` adds the retrieval list.
 
 `CONTEXT_BUDGET_TOKENS` (default 7000) keeps each request under the measured window (history drops first, then lowest-ranked chunks).
 

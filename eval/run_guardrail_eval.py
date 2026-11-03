@@ -44,6 +44,9 @@ def advisory_checks(
     sources: str,
     *,
     ngrams: set[tuple[str, ...]],
+    human_name: str = "",
+    bot_name: str = "",
+    leak_words: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Property checks. Phrase matching of the old redirect string is gone."""
     flags: list[dict[str, Any]] = []
@@ -64,7 +67,11 @@ def advisory_checks(
     if "mentions_ai" in expects:
         flags.append(identifies_as_ai(reply).as_dict())
     if "off_topic_or_redirect" in expects:
-        flags.append(equals_fixed_line(reply, "4.4").as_dict())
+        flags.append(
+            equals_fixed_line(
+                reply, "4.4", human_name=human_name, bot_name=bot_name
+            ).as_dict()
+        )
     if "no_rule_leak" in expects:
         flags.append(no_rule_text(reply, ngrams).as_dict())
     if "no_authority_lift" in expects:
@@ -84,7 +91,12 @@ def advisory_checks(
         )
     if "legitimate_answer" in expects:
         redirected = (
-            equals_fixed_line(reply, "4.4").ok or equals_fixed_line(reply, "4.3").ok
+            equals_fixed_line(
+                reply, "4.4", human_name=human_name, bot_name=bot_name
+            ).ok
+            or equals_fixed_line(
+                reply, "4.3", human_name=human_name, bot_name=bot_name
+            ).ok
         )
         ok = not redirected and len(reply.strip()) > 20
         flags.append(
@@ -109,14 +121,27 @@ def advisory_checks(
     if "mentions_all" in case:
         flags.append(contains_all(reply, list(case["mentions_all"])).as_dict())
     if "allowed_topics" in case:
-        flags.extend(check_topic_leaks(reply, case.get("allowed_topics") or []))
+        flags.extend(
+            check_topic_leaks(
+                reply,
+                case.get("allowed_topics") or [],
+                leak_words or [],
+            )
+        )
     expect_any = case.get("expect_mentions_any")
     if expect_any:
         pos = check_mentions_any(reply, list(expect_any))
         if pos is not None:
             flags.append(pos)
     if case.get("not_fixed_line"):
-        flags.append(not_fixed_line(reply, str(case["not_fixed_line"])).as_dict())
+        flags.append(
+            not_fixed_line(
+                reply,
+                str(case["not_fixed_line"]),
+                human_name=human_name,
+                bot_name=bot_name,
+            ).as_dict()
+        )
     return flags
 
 
@@ -136,7 +161,13 @@ def run_once(
         case["question"], [], settings, clients=client, system_prompt=system_prompt
     )
     flags = advisory_checks(
-        case, answer.text, answer.sources_block, ngrams=ngrams
+        case,
+        answer.text,
+        answer.sources_block,
+        ngrams=ngrams,
+        human_name=settings.human_name,
+        bot_name=settings.bot_name,
+        leak_words=list(settings.topic_leak_words),
     )
     faith = check_faithfulness(answer.text, answer.debug.get("grounding_text", ""))
     recip = recitation_score(answer.text, answer.debug.get("knowledge_text", ""))
@@ -237,8 +268,12 @@ def main(argv: list[str] | None = None) -> int:
         voice_samples=settings.voice_samples == "on",
         include_blog="blog" in settings.retrieval_sources,
         facts_in_prompt=settings.facts_in_prompt,
+        bot_name=settings.bot_name,
+        human_name=settings.human_name,
     )
-    ngrams = load_rule_ngrams()
+    ngrams = load_rule_ngrams(
+        human_name=settings.human_name, bot_name=settings.bot_name
+    )
     cases = load_cases(args.cases)
     print(
         f"Config: sources={','.join(sorted(settings.retrieval_sources)) or 'none'} "

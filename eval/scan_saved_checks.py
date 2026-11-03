@@ -14,11 +14,12 @@ from typing import Any
 
 from eval.properties import (
     CHARACTERIZATION_WORDS,
-    FIXED_LINES,
     _has_word,
     min_sentences,
     no_unsupported_characterization,
 )
+from src.config import load_settings
+from src.guards import persona_lines
 
 RESULTS = Path("data/eval")
 ABOUT = Path("content/about-ben.md")
@@ -50,7 +51,8 @@ def _walk(node: Any, found: list[dict[str, Any]]) -> None:
 def main() -> int:
     about = ABOUT.read_text(encoding="utf-8")
     corpus = about + "\n" + QA.read_text(encoding="utf-8")
-    fixed = set(FIXED_LINES.values())
+    lines = persona_lines(load_settings().human_name, load_settings().bot_name)
+    fixed = {lines.missing, lines.off_topic, lines.identity}
     sentence_false = 0
     sentence_other_samples: list[str] = []
     sentence_other = 0

@@ -57,9 +57,12 @@ def test_bad_support_scores_sit_below_the_threshold() -> None:
     assert max(scores) < SUPPORT_THRESHOLD
 
 
-def test_fixed_lines_are_exempt() -> None:
-    line = "I don't have that detail. You can ask the real Ben directly."
-    assert verify_answer(line, KNOWLEDGE).ok is True
+def test_fixed_lines_are_exempt_only_when_passed() -> None:
+    from src.guards import persona_lines
+
+    line = persona_lines("Ada", "Bot").missing
+    assert verify_answer(line, KNOWLEDGE, exempt=frozenset({line})).ok is True
+    assert verify_answer(line, KNOWLEDGE).ok is False
 
 
 def test_characterization_flags_only_words_absent_from_knowledge() -> None:

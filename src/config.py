@@ -21,8 +21,11 @@ from dotenv import load_dotenv
 
 from src.embeddings import EmbedConfig
 
+KNOWN_SOURCES = frozenset({"qa", "facts", "blog"})
+QA_MODES = frozenset({"retrieve", "stuff"})
 QA_EMBED_MODES = frozenset({"question_and_answer", "question_only", "multi"})
 QUERY_MODES = frozenset({"auto", "turns"})
+FACTS_IN_PROMPT_MODES = frozenset({"full", "summary"})
 ON_OFF = frozenset({"on", "off"})
 LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
 
@@ -58,14 +61,20 @@ class Settings:
     embed_query_prefix: str = "search_query: "
     embed_doc_prefix: str = "search_document: "
     qa_embed_mode: str = "multi"
+    retrieval_sources: frozenset[str] = frozenset({"qa", "facts"})
     retrieval_k: int = 4
     retrieval_max_per_article: int = 2
     retrieval_min_score: float | None = None
     retrieval_query_mode: str = "auto"
     retrieval_query_turns: int = 2
+    facts_in_prompt: str = "full"
     history_turns: int = 6
     context_budget_tokens: int = 7000
+    qa_mode: str = "retrieve"
     voice_samples: str = "off"
+    source_stale_years: int = 3
+    blog_base_url: str = ""
+    cms_graphql_url: str = ""
     log_level: str = "WARNING"
     log_turns: str = "off"
     verify_prune_min_sentences: int = 2
@@ -73,13 +82,6 @@ class Settings:
     bot_name: str = "Bot"
     human_name: str = ""
     topic_leak_words: tuple[str, ...] = ()
-    llm_primary_timeout_seconds: float = 120.0
-    llm_secondary_base_url: str = ""
-    llm_secondary_api_key: str = ""
-    llm_secondary_model: str = ""
-    llm_secondary_timeout_seconds: float = 120.0
-    failover_retry_seconds: float = 300.0
-    failover_on_http_status: tuple[int, ...] = ()
 
     def to_embed_config(self) -> EmbedConfig:
         return EmbedConfig(
@@ -102,25 +104,11 @@ class Settings:
             min_score = "unset"
         else:
             min_score = _format_float(self.retrieval_min_score)
+        sources = ",".join(sorted(self.retrieval_sources)) or "none"
         return {
             "LLM_BASE_URL": self.llm_base_url,
             "LLM_API_KEY": mask_secret(self.llm_api_key),
             "LLM_MODEL": self.llm_model,
-            "LLM_PRIMARY_TIMEOUT_SECONDS": _format_float(self.llm_primary_timeout_seconds),
-            "LLM_SECONDARY_BASE_URL": self.llm_secondary_base_url or "unset",
-            "LLM_SECONDARY_API_KEY": (
-                "unset" if not self.llm_secondary_base_url else mask_secret(self.llm_secondary_api_key)
-            ),
-            "LLM_SECONDARY_MODEL": self.llm_secondary_model or "unset",
-            "LLM_SECONDARY_TIMEOUT_SECONDS": (
-                "unset"
-                if not self.llm_secondary_base_url
-                else _format_float(self.llm_secondary_timeout_seconds)
-            ),
-            "FAILOVER_RETRY_SECONDS": _format_float(self.failover_retry_seconds),
-            "FAILOVER_ON_HTTP_STATUS": (
-                ",".join(str(code) for code in self.failover_on_http_status) or "unset"
-            ),
             "LLM_TEMPERATURE": _format_float(self.llm_temperature),
             "LLM_MAX_TOKENS": self.llm_max_tokens,
             "EMBED_MODEL": self.embed_model,
@@ -131,14 +119,20 @@ class Settings:
             "EMBED_QUERY_PREFIX": self.embed_query_prefix,
             "EMBED_DOC_PREFIX": self.embed_doc_prefix,
             "QA_EMBED_MODE": self.qa_embed_mode,
+            "RETRIEVAL_SOURCES": sources,
             "RETRIEVAL_K": self.retrieval_k,
             "RETRIEVAL_MAX_PER_ARTICLE": self.retrieval_max_per_article,
             "RETRIEVAL_MIN_SCORE": min_score,
             "RETRIEVAL_QUERY_MODE": self.retrieval_query_mode,
             "RETRIEVAL_QUERY_TURNS": self.retrieval_query_turns,
+            "FACTS_IN_PROMPT": self.facts_in_prompt,
             "HISTORY_TURNS": self.history_turns,
             "CONTEXT_BUDGET_TOKENS": self.context_budget_tokens,
+            "QA_MODE": self.qa_mode,
             "VOICE_SAMPLES": self.voice_samples,
+            "SOURCE_STALE_YEARS": self.source_stale_years,
+            "BLOG_BASE_URL": self.blog_base_url,
+            "CMS_GRAPHQL_URL": self.cms_graphql_url,
             "LOG_LEVEL": self.log_level,
             "LOG_TURNS": self.log_turns,
             "VERIFY_PRUNE_MIN_SENTENCES": self.verify_prune_min_sentences,
@@ -151,8 +145,9 @@ class Settings:
     def hash_payload(self) -> dict[str, Any]:
         """Unmasked canonical values. Used only as hash input, never printed."""
         data = {field.name: getattr(self, field.name) for field in fields(self)}
+        sources = data["retrieval_sources"]
+        data["retrieval_sources"] = sorted(sources)
         data["topic_leak_words"] = list(data["topic_leak_words"])
-        data["failover_on_http_status"] = list(data["failover_on_http_status"])
         return data
 
 
@@ -214,30 +209,42 @@ def git_commit() -> str:
 # Historical defaults. Callers that pass one of these paths get CONTENT_DIR
 # resolution. Any other path is used as given (tests monkeypatch these).
 DEFAULT_CONTENT_FILES = {
-    "about": Path("content/about.md"),
+    "about-ben": Path("content/about-ben.md"),
     "qa": Path("content/qa.md"),
     "facts": Path("content/facts.md"),
+}
+
+
+# Facts files. ``about.md`` is the generic name. ``about-ben.md`` still loads
+# so an existing content directory keeps working.
+_CONTENT_ALIASES = {
+    "about": ("about", "about-ben"),
+    "about-ben": ("about", "about-ben"),
 }
 
 
 def resolve_content_file(stem: str, settings: Settings | None = None) -> Path:
     """Find ``{stem}.md`` under CONTENT_DIR, then ``{stem}.example.md``.
 
-    Returns the preferred path when neither file exists, so callers can
-    report the path they expected.
+    The facts stem also accepts the other facts filename. Returns the
+    preferred path when neither file exists, so callers can report the path
+    they expected.
     """
     if settings is None:
         settings = load_settings()
     root = Path(settings.content_dir)
     if not root.is_absolute():
         root = _ROOT / root
-    primary = root / f"{stem}.md"
-    if primary.is_file():
-        return _display_path(primary)
-    example = root / f"{stem}.example.md"
-    if example.is_file():
-        return _display_path(example)
-    return _display_path(primary)
+    stems = _CONTENT_ALIASES.get(stem, (stem,))
+    for candidate in stems:
+        primary = root / f"{candidate}.md"
+        if primary.is_file():
+            return _display_path(primary)
+    for candidate in stems:
+        example = root / f"{candidate}.example.md"
+        if example.is_file():
+            return _display_path(example)
+    return _display_path(root / f"{stems[0]}.md")
 
 
 def select_content_path(explicit: Path, stem: str, settings: Settings) -> Path:
@@ -296,22 +303,13 @@ def configure_logging(settings: Settings) -> None:
 def _parse_settings(data: Mapping[str, str]) -> Settings:
     llm_base = _str(data, "LLM_BASE_URL", "http://localhost:11434/v1")
     llm_key = _str(data, "LLM_API_KEY", "ollama")
-    llm_model = _str(data, "LLM_MODEL", "llama3.1:8b")
-    primary = _connection_group(data, "LLM_PRIMARY")
-    if primary is not None:
-        llm_base, llm_key, llm_model = primary
-    secondary = _connection_group(data, "LLM_SECONDARY")
-    if secondary is None:
-        secondary_base, secondary_key, secondary_model = "", "", ""
-        secondary_timeout = 120.0
-    else:
-        secondary_base, secondary_key, secondary_model = secondary
-        secondary_timeout = _float(
-            data, "LLM_SECONDARY_TIMEOUT_SECONDS", 120.0, minimum=1.0
-        )
     embed_base = _optional_text(data, "EMBED_BASE_URL")
     embed_key = _optional_text(data, "EMBED_API_KEY")
-    qa_embed = _choice(data, "QA_EMBED_MODE", "multi", QA_EMBED_MODES)
+    sources = _sources(data)
+    qa_mode = _choice(data, "QA_MODE", "retrieve", QA_MODES)
+    qa_embed = _choice(
+        data, "QA_EMBED_MODE", "multi", QA_EMBED_MODES
+    )
     voice_raw = data.get("VOICE_SAMPLES")
     if voice_raw is None or str(voice_raw).strip() == "":
         voice = "off"
@@ -327,16 +325,7 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
     return Settings(
         llm_base_url=llm_base,
         llm_api_key=llm_key,
-        llm_model=llm_model,
-        llm_primary_timeout_seconds=_float(
-            data, "LLM_PRIMARY_TIMEOUT_SECONDS", 120.0, minimum=1.0
-        ),
-        llm_secondary_base_url=secondary_base,
-        llm_secondary_api_key=secondary_key,
-        llm_secondary_model=secondary_model,
-        llm_secondary_timeout_seconds=secondary_timeout,
-        failover_retry_seconds=_float(data, "FAILOVER_RETRY_SECONDS", 300.0, minimum=0.0),
-        failover_on_http_status=_http_statuses(data),
+        llm_model=_str(data, "LLM_MODEL", "llama3.1:8b"),
         llm_temperature=_float(data, "LLM_TEMPERATURE", 0.0, minimum=0.0),
         llm_max_tokens=_int(data, "LLM_MAX_TOKENS", 600, minimum=1),
         embed_model=_str(data, "EMBED_MODEL", "nomic-embed-text"),
@@ -347,6 +336,7 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
         embed_query_prefix=_prefix(data, "EMBED_QUERY_PREFIX", "search_query: "),
         embed_doc_prefix=_prefix(data, "EMBED_DOC_PREFIX", "search_document: "),
         qa_embed_mode=qa_embed,
+        retrieval_sources=sources,
         retrieval_k=_int(data, "RETRIEVAL_K", 4, minimum=1),
         retrieval_max_per_article=_int(
             data, "RETRIEVAL_MAX_PER_ARTICLE", 2, minimum=1
@@ -354,12 +344,17 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
         retrieval_min_score=_min_score(data),
         retrieval_query_mode=_choice(data, "RETRIEVAL_QUERY_MODE", "auto", QUERY_MODES),
         retrieval_query_turns=_int(data, "RETRIEVAL_QUERY_TURNS", 2, minimum=1),
+        facts_in_prompt=_choice(data, "FACTS_IN_PROMPT", "full", FACTS_IN_PROMPT_MODES),
         history_turns=_int(data, "HISTORY_TURNS", 6, minimum=0),
         context_budget_tokens=_int(data, "CONTEXT_BUDGET_TOKENS", 7000, minimum=0),
+        qa_mode=qa_mode,
         voice_samples=voice,
+        source_stale_years=_int(data, "SOURCE_STALE_YEARS", 3, minimum=0),
+        blog_base_url=_str(data, "BLOG_BASE_URL", ""),
         bot_name=_str(data, "BOT_NAME", "Bot"),
         human_name=_str(data, "HUMAN_NAME", ""),
         topic_leak_words=_word_list(data, "TOPIC_LEAK_WORDS"),
+        cms_graphql_url=_str(data, "CMS_GRAPHQL_URL", ""),
         log_level=log_level,
         log_turns=log_turns,
         verify_prune_min_sentences=_int(
@@ -388,50 +383,6 @@ def _word_list(data: Mapping[str, str], name: str) -> tuple[str, ...]:
         seen.add(word)
         words.append(word)
     return tuple(words)
-
-
-def _connection_group(
-    data: Mapping[str, str], prefix: str
-) -> tuple[str, str, str] | None:
-    """Return base URL, key, and model when any of that group is set.
-
-    Blank means unset. Setting one of the three requires all three.
-    """
-    names = (f"{prefix}_BASE_URL", f"{prefix}_API_KEY", f"{prefix}_MODEL")
-    values = [_optional_text(data, name) for name in names]
-    if not any(values):
-        return None
-    missing = [name for name, value in zip(names, values) if not value]
-    if missing:
-        raise ValueError(
-            f"{missing[0]} is required when any {prefix}_* connection setting is set"
-        )
-    return values[0], values[1], values[2]
-
-
-def _http_statuses(data: Mapping[str, str]) -> tuple[int, ...]:
-    name = "FAILOVER_ON_HTTP_STATUS"
-    if name not in data or str(data[name]).strip() == "":
-        return ()
-    found: list[int] = []
-    seen: set[int] = set()
-    for part in str(data[name]).split(","):
-        raw = part.strip()
-        if not raw:
-            continue
-        try:
-            code = int(raw)
-        except ValueError as exc:
-            raise ValueError(
-                f"{name} must be a comma-separated list of HTTP status codes, got {raw!r}"
-            ) from exc
-        if code < 100 or code > 599:
-            raise ValueError(f"{name} must be an HTTP status code, got {raw!r}")
-        if code in seen:
-            continue
-        seen.add(code)
-        found.append(code)
-    return tuple(found)
 
 
 def _optional_text(data: Mapping[str, str], name: str) -> str:
@@ -501,6 +452,23 @@ def _choice(
         options = ", ".join(sorted(allowed))
         raise ValueError(f"{name} must be one of {options}, got {raw!r}")
     return raw
+
+
+def _sources(data: Mapping[str, str]) -> frozenset[str]:
+    name = "RETRIEVAL_SOURCES"
+    if name not in data:
+        return frozenset({"qa", "facts"})
+    text = str(data[name]).strip()
+    if not text or text.lower() == "none":
+        return frozenset()
+    parts = [part.strip() for part in text.split(",") if part.strip()]
+    unknown = [part for part in parts if part not in KNOWN_SOURCES]
+    if unknown:
+        raise ValueError(
+            f"RETRIEVAL_SOURCES has unknown source type {unknown[0]!r}; "
+            "expected qa, facts, or blog"
+        )
+    return frozenset(parts)
 
 
 def _format_float(value: float) -> str:

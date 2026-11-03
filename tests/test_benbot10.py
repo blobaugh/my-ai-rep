@@ -103,7 +103,9 @@ def test_defaults_match_spec() -> None:
     assert settings.retrieval_k == 4
     assert settings.retrieval_max_per_article == 2
     assert settings.retrieval_query_turns == 2
+    assert settings.retrieval_sources == frozenset({"qa", "facts"})
     assert settings.retrieval_query_mode == "auto"
+    assert settings.facts_in_prompt == "full"
     assert settings.qa_embed_mode == "multi"
     assert settings.voice_samples == "off"
     assert settings.retrieval_min_score is None
@@ -114,6 +116,8 @@ def test_defaults_match_spec() -> None:
 def test_parse_error_names_the_variable() -> None:
     with pytest.raises(ValueError, match="RETRIEVAL_K"):
         _settings(RETRIEVAL_K="nope")
+    with pytest.raises(ValueError, match="RETRIEVAL_SOURCES"):
+        _settings(RETRIEVAL_SOURCES="wiki")
     with pytest.raises(ValueError, match="RETRIEVAL_MIN_SCORE"):
         _settings(RETRIEVAL_MIN_SCORE="2")
 
@@ -160,16 +164,7 @@ def test_health_failure_messages() -> None:
     report = run_health_checks(settings, probe=missing_about)
     assert any("Facts file not found" in line for line in report.errors)
 
-    bad_qa = _probe(
-        texts={
-            "prompt": "rules",
-            "about": "facts",
-            "qa": (
-                "## broken\nQ: Hello\nA: Hi\nsource: x\nreview: draft\n"
-                "not an answer\n"
-            ),
-        }
-    )
+    bad_qa = _probe(texts={"prompt": "rules", "about": "facts", "qa": "not qa"})
     report = run_health_checks(settings, probe=bad_qa)
     assert any(line.startswith("qa.md parse error:") for line in report.errors)
 
@@ -209,7 +204,7 @@ def test_health_failure_messages() -> None:
         }
     )
     report = run_health_checks(settings, probe=no_qa)
-    assert any("no entries" in line for line in report.errors)
+    assert any("no Q&A entries" in line for line in report.errors)
 
     stale = _probe(index_mtime=1.0, source_mtimes=[5.0])
     report = run_health_checks(settings, probe=stale)
@@ -293,6 +288,7 @@ def test_retrieve_cli_uses_settings(monkeypatch: pytest.MonkeyPatch, capsys: pyt
     captured = capsys.readouterr()
     assert code == 0
     assert "RETRIEVAL_K=3" in captured.out
+    assert "RETRIEVAL_SOURCES=facts,qa" in captured.out
     assert "EMBED_MODEL=embed-x" in captured.out
 
 
@@ -306,11 +302,13 @@ def test_retrieve_help_is_not_blog_only(capsys: pytest.CaptureFixture[str]) -> N
 
 def test_eval_runner_uses_config_settings() -> None:
     settings = build_run_settings(
+        sources="none",
         retrieval_k=8,
         query_turns=1,
         base=_settings(LLM_MODEL="from-config"),
     )
     assert settings.llm_model == "from-config"
+    assert settings.retrieval_sources == frozenset()
     assert settings.retrieval_k == 8
     assert settings.retrieval_query_turns == 1
     source = (ROOT / "eval" / "run_guardrail_eval.py").read_text(encoding="utf-8")

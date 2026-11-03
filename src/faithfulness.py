@@ -192,8 +192,6 @@ NAME_STOPLIST = frozenset(
         "remote",
         "ai",
         "bot",
-        "ben",
-        "benbot",
     }
 )
 
@@ -280,8 +278,21 @@ def _sentence_starts(text: str) -> set[int]:
     return starts
 
 
-def extract_claim_tokens(answer: str) -> list[ClaimToken]:
+def name_stopwords(*names: str) -> frozenset[str]:
+    """Tokens from configured names that are not invented claims."""
+    words: list[str] = []
+    for name in names:
+        words.extend(re.findall(r"[a-z0-9']+", name.lower()))
+    return frozenset(words)
+
+
+def extract_claim_tokens(
+    answer: str, *, extra_stopwords: frozenset[str] | None = None
+) -> list[ClaimToken]:
     """Extract numbers, years, dates, names/titles, and quotes from an answer."""
+    stop = NAME_STOPLIST
+    if extra_stopwords:
+        stop = NAME_STOPLIST | {word.lower() for word in extra_stopwords}
     tokens: list[ClaimToken] = []
     seen: set[tuple[str, str]] = set()
 
@@ -320,7 +331,7 @@ def extract_claim_tokens(answer: str) -> list[ClaimToken]:
             continue
         # Skip if this single cap is part of an already-captured multi-word name.
         word = m.group(1)
-        if word.lower() in NAME_STOPLIST:
+        if word.lower() in stop:
             continue
         # Skip months already handled as dates when followed by a day — keep simple.
         add("title", word)
@@ -328,14 +339,19 @@ def extract_claim_tokens(answer: str) -> list[ClaimToken]:
     return tokens
 
 
-def check_faithfulness(answer: str, grounding_text: str) -> FaithfulnessResult:
+def check_faithfulness(
+    answer: str,
+    grounding_text: str,
+    *,
+    extra_stopwords: frozenset[str] | None = None,
+) -> FaithfulnessResult:
     """Return claim tokens in the answer that do not appear in grounding_text.
 
     grounding_text should be the text actually sent to the model (system prompt
     plus retrieved / stuffed knowledge). Matching is case-insensitive substring.
     """
     context_norm = _normalize_for_lookup(grounding_text)
-    checked = extract_claim_tokens(answer)
+    checked = extract_claim_tokens(answer, extra_stopwords=extra_stopwords)
     unsupported: list[ClaimToken] = []
     for token in checked:
         if token.kind == "number" and token.text.lower() in SPELLED_NUMBERS:

@@ -276,7 +276,7 @@ def parse_qa(text: str) -> list[QAEntry]:
 
 def format_stuffed_qa_section(entries: list[QAEntry]) -> str:
     """Format all Q&A answers for the system prompt (stuff mode)."""
-    parts = ["Ben's own Q&A answers (use these directly in the first person):"]
+    parts = ["Their own Q&A answers (use these directly in the first person):"]
     for entry in entries:
         parts.append(f"Q: {entry.question}\nA: {entry.answer}")
     return "\n\n".join(parts)

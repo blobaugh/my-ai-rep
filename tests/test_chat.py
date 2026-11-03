@@ -306,11 +306,16 @@ def test_short_prune_retries_once_then_can_fall_back(
     assert answer.text == "Body of work-role"
 
 
-def test_empty_ask_exits_with_code_2(capsys: pytest.CaptureFixture[str]) -> None:
+def test_empty_ask_exits_with_code_2(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "src.chat.load_settings", lambda: load_settings(environ={})
+    )
     code = main(["--ask", ""])
     captured = capsys.readouterr()
     assert code == 2
-    assert captured.out.strip() == "Ask me something about Ben."
+    assert captured.out.strip() == "Ask me something."
 
 
 def test_stuff_mode_omits_the_no_match_notice(tmp_path) -> None:

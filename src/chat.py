@@ -1,4 +1,4 @@
-"""BenBot command-line chat. All answers go through answer_turn."""
+"""Command-line chat. All answers go through answer_turn."""
 
 from __future__ import annotations
 
@@ -7,10 +7,10 @@ import sys
 from collections.abc import Sequence
 
 from src.config import Settings, configure_logging, format_settings, load_settings
+from src.guards import persona_lines
 from src.health import run_health_checks
 from src.pipeline import Answer, answer_turn, append_turn
 
-BANNER = "Hi, I'm BenBot, an AI that speaks for Ben. Ask me anything about him."
 HELP = """/reset  Clear this conversation and show the greeting again.
 /quit   Exit.
 /help   Show these commands."""
@@ -70,7 +70,7 @@ def format_debug(answer: Answer) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="BenBot chat")
+    parser = argparse.ArgumentParser(description="Chat with the configured person")
     parser.add_argument("--ask", default=None, help="Answer one question and exit")
     parser.add_argument(
         "--debug",
@@ -83,15 +83,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Stream tokens as they arrive and skip verification (debugging)",
     )
     args = parser.parse_args(list(argv) if argv is not None else None)
-    if args.ask is not None and not args.ask.strip():
-        print("Ask me something about Ben.")
-        return 2
-
     try:
         settings = load_settings()
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    lines = persona_lines(settings.human_name, settings.bot_name)
+    if args.ask is not None and not args.ask.strip():
+        print(lines.empty_ask)
+        return 2
 
     configure_logging(settings)
     if args.ask is None or args.debug:
@@ -105,7 +105,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     if args.ask is not None:
         return _ask(args.ask, settings, debug=args.debug, stream=args.stream)
-    print(BANNER)
+    print(lines.banner)
     print(report.ready_line)
     return _loop(settings, debug=args.debug, stream=args.stream)
 
@@ -148,7 +148,7 @@ def _loop(settings: Settings, *, debug: bool, stream: bool) -> int:
             continue
         if command == "/reset":
             history = []
-            print(BANNER)
+            print(persona_lines(settings.human_name, settings.bot_name).banner)
             continue
         if not user_input.strip() and len(user_input) <= 2000:
             continue
@@ -181,7 +181,6 @@ def _loop(settings: Settings, *, debug: bool, stream: bool) -> int:
 
 # Re-exported so older tests and evals can import them from src.chat.
 __all__ = [
-    "BANNER",
     "answer_turn",
     "append_turn",
     "load_settings",

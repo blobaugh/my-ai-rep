@@ -75,11 +75,12 @@ def test_real_prompt_off_has_no_voice_placeholder() -> None:
     assert "{{VOICE_SAMPLES}}" not in text
     assert "{{ABOUT_BEN}}" not in text
     assert "How I talk (style examples only):" not in text
-    # Stable prefix still ends rules, then About Ben.
-    assert "About Ben:" in text
+    assert "Facts:" in text
+    assert "{{FACTS}}" not in text
+    assert "{{HUMAN_NAME}}" not in text
     assert "{{BLOG_RULES}}" not in text
     assert "How-to and technical questions are in scope" not in text
-    assert text.index("15. Entries labeled") < text.index("About Ben:")
+    assert text.index("15. Entries labeled") < text.index("Facts:")
 
 
 def test_real_prompt_on_places_voice_after_rules() -> None:
@@ -90,4 +91,4 @@ def test_real_prompt_on_places_voice_after_rules() -> None:
     text = load_system_prompt(stale_years=3, voice_samples=True)
     assert "How I talk (style examples only):" in text
     assert text.index("15. Entries labeled") < text.index("How I talk")
-    assert text.index("How I talk") < text.index("About Ben:")
+    assert text.index("How I talk") < text.index("Facts:")

@@ -32,12 +32,23 @@ def _checks(
     specs: list[dict[str, Any]],
     ngrams: set,
     knowledge: str = "",
+    *,
+    human_name: str = "",
+    bot_name: str = "",
 ) -> list[dict[str, Any]]:
     full = list(specs)
     if not any(spec.get("name") == "no_unsupported_characterization" for spec in full):
         full.append({"name": "no_unsupported_characterization"})
     return [
-        run_check(text, spec, ngrams=ngrams, knowledge=knowledge).as_dict() for spec in full
+        run_check(
+            text,
+            spec,
+            ngrams=ngrams,
+            knowledge=knowledge,
+            human_name=human_name,
+            bot_name=bot_name,
+        ).as_dict()
+        for spec in full
     ]
 
 
@@ -59,6 +70,8 @@ def run_regression(
             list(case.get("checks") or []),
             ngrams,
             check_knowledge(answer),
+            human_name=settings.human_name,
+            bot_name=settings.bot_name,
         )
         rows.append(_row(case["id"], case["question"], answer, flags))
     return rows
@@ -89,6 +102,8 @@ def run_conversations(
                 list(turn.get("checks") or []),
                 ngrams,
                 check_knowledge(answer),
+                human_name=settings.human_name,
+                bot_name=settings.bot_name,
             )
             flags.extend(_retrieval_flags(answer, turn.get("expect_retrieval") or {}))
             turns.append(_row(script["id"], turn["question"], answer, flags))
@@ -279,8 +294,12 @@ def main(argv: list[str] | None = None) -> int:
         voice_samples=settings.voice_samples == "on",
         include_blog="blog" in settings.retrieval_sources,
         facts_in_prompt=settings.facts_in_prompt,
+        bot_name=settings.bot_name,
+        human_name=settings.human_name,
     )
-    ngrams = load_rule_ngrams()
+    ngrams = load_rule_ngrams(
+        human_name=settings.human_name, bot_name=settings.bot_name
+    )
     regression = run_regression(load_cases(REGRESSION_PATH), settings, ngrams=ngrams)
     conversations = run_conversations(
         load_cases(CONVERSATION_PATH), settings, ngrams=ngrams

@@ -13,7 +13,7 @@ from src.config import Settings, min_score_warning, resolve_content_file
 from src.qa import QAParseError, parse_qa
 
 PROMPT_PATH = Path("prompts/system.md")
-ABOUT_PATH = Path("content/about.md")
+ABOUT_PATH = Path("content/about-ben.md")
 QA_PATH = Path("content/qa.md")
 INDEX_DIR = Path("data/index")
 CHUNKS_DIR = Path("data/chunks")
@@ -52,9 +52,11 @@ def run_health_checks(settings: Settings, *, probe: Probe | None = None) -> Heal
     if score_warning:
         warnings.append(score_warning)
 
-    errors.extend(_embedder_errors(settings, info))
-    warnings.extend(_chat_connection_warnings(settings, info))
-    errors.extend(_missing_model_errors(settings, info))
+    for url in _endpoint_urls(settings):
+        if not info.reachable.get(url, False):
+            errors.append(unreachable_message(url))
+    if not any(unreachable_message(url) in errors for url in _endpoint_urls(settings)):
+        errors.extend(_missing_model_errors(settings, info))
 
     errors.extend(_file_errors(info))
     qa_entries = 0
@@ -63,23 +65,27 @@ def run_health_checks(settings: Settings, *, probe: Probe | None = None) -> Heal
     else:
         errors.extend(_index_mismatch_errors(settings, info.index))
         qa_entries = int(info.index.get("qa_entries") or 0)
-        entry_count = int(info.index.get("entry_count") or 0)
-        if entry_count < 1 and qa_entries < 1:
+        facts_entries = int(info.index.get("facts_entries") or 0)
+        if "qa" in settings.retrieval_sources and qa_entries < 1:
             errors.append(
-                "The index has no entries. "
-                "Run python -m src.qa && python -m src.index_chunks --rebuild"
+                "RETRIEVAL_SOURCES includes qa but the index has no Q&A entries. "
+                "Run python -m src.qa && python -m src.index_chunks"
+            )
+        if "facts" in settings.retrieval_sources and facts_entries < 1:
+            errors.append(
+                "RETRIEVAL_SOURCES includes facts but the index has no facts entries. "
+                "Run python -m src.qa && python -m src.index_chunks"
             )
         if _index_is_stale(info):
             warnings.append(STALE_WARNING)
 
+    sources = ",".join(sorted(settings.retrieval_sources)) or "none"
     ready = (
-        f"Ready: model={settings.llm_model} "
+        f"Ready: model={settings.llm_model} sources={sources} "
         f"k={settings.retrieval_k} qa_entries={qa_entries} "
         f"temperature={_temp(settings.llm_temperature)} "
         f"voice_samples={settings.voice_samples} "
-        f"query_turns={settings.retrieval_query_turns} "
-        f"chat_primary={_reach_word(info, settings.llm_base_url)} "
-        f"chat_secondary={_secondary_word(settings, info)}"
+        f"query_turns={settings.retrieval_query_turns}"
     )
     return HealthReport(
         errors=errors, warnings=warnings, ready_line=ready, qa_entries=qa_entries
@@ -123,7 +129,7 @@ def live_probe(settings: Settings) -> Probe:
             reachable[url] = False
             models[url] = []
     index, index_mtime = _read_index_summary()
-    about_path = resolve_content_file("about", settings)
+    about_path = resolve_content_file("about-ben", settings)
     qa_path = resolve_content_file("qa", settings)
     texts = {
         "prompt": _read(PROMPT_PATH),
@@ -135,8 +141,6 @@ def live_probe(settings: Settings) -> Probe:
         source_mtimes.append(qa_path.stat().st_mtime)
     if CHUNKS_DIR.is_dir():
         for path in CHUNKS_DIR.glob("*.jsonl"):
-            if path.name == "chunks.jsonl":
-                continue
             source_mtimes.append(path.stat().st_mtime)
     return Probe(
         reachable=reachable,
@@ -152,76 +156,10 @@ def live_probe(settings: Settings) -> Probe:
 
 def _endpoint_urls(settings: Settings) -> list[str]:
     urls = [settings.llm_base_url.rstrip("/")]
-    if settings.llm_secondary_base_url:
-        secondary = settings.llm_secondary_base_url.rstrip("/")
-        if secondary not in urls:
-            urls.append(secondary)
     embed = settings.embed_base_url.rstrip("/")
     if embed not in urls:
         urls.append(embed)
     return urls
-
-
-def _embedder_errors(settings: Settings, info: Probe) -> list[str]:
-    embed_url = settings.embed_base_url.rstrip("/")
-    if info.reachable.get(embed_url, False):
-        return []
-    return [unreachable_message(embed_url)]
-
-
-def _chat_connection_warnings(settings: Settings, info: Probe) -> list[str]:
-    warnings: list[str] = []
-    embed_url = settings.embed_base_url.rstrip("/")
-    primary = settings.llm_base_url.rstrip("/")
-    if not info.reachable.get(primary, False) and primary != embed_url:
-        if settings.llm_secondary_base_url:
-            warnings.append(
-                f"WARNING chat primary is not reachable at {primary}. "
-                "Requests will try the secondary connection."
-            )
-        else:
-            warnings.append(
-                f"WARNING chat primary is not reachable at {primary}. "
-                "Answers will fail until it is up."
-            )
-    elif (
-        not info.reachable.get(primary, False)
-        and primary == embed_url
-        and settings.llm_secondary_base_url
-    ):
-        warnings.append(
-            "WARNING chat primary is not reachable. "
-            "Requests will try the secondary connection."
-        )
-    secondary = settings.llm_secondary_base_url.rstrip("/")
-    if secondary and not info.reachable.get(secondary, False) and secondary != embed_url:
-        warnings.append(
-            f"WARNING chat secondary is not reachable at {secondary}. "
-            "Failover cannot use it until it is up."
-        )
-    if secondary and _same_chat_connection(settings):
-        warnings.append(
-            "WARNING LLM_SECONDARY_* matches the primary connection, "
-            "so failover will not change hosts."
-        )
-    if (
-        secondary
-        and info.reachable.get(secondary, False)
-        and not _model_present(settings.llm_secondary_model, info.models.get(secondary, []))
-    ):
-        warnings.append(
-            f"WARNING secondary model {settings.llm_secondary_model!r} "
-            f"was not found at {secondary}."
-        )
-    return warnings
-
-
-def _same_chat_connection(settings: Settings) -> bool:
-    return (
-        settings.llm_secondary_base_url.rstrip("/") == settings.llm_base_url.rstrip("/")
-        and settings.llm_secondary_api_key == settings.llm_api_key
-        and settings.llm_secondary_model == settings.llm_model
-    )
 
 
 def _missing_model_errors(settings: Settings, info: Probe) -> list[str]:
@@ -237,18 +175,6 @@ def _missing_model_errors(settings: Settings, info: Probe) -> list[str]:
     ):
         errors.append(missing_embed_message(settings.embed_model, embed_url))
     return errors
-
-
-def _reach_word(info: Probe, url: str) -> str:
-    if info.reachable.get(url.rstrip("/"), False):
-        return "reachable"
-    return "unreachable"
-
-
-def _secondary_word(settings: Settings, info: Probe) -> str:
-    if not settings.llm_secondary_base_url:
-        return "unset"
-    return _reach_word(info, settings.llm_secondary_base_url)
 
 
 def _model_present(name: str, ids: list[str]) -> bool:
@@ -271,14 +197,13 @@ def _file_errors(info: Probe) -> list[str]:
         errors.append(f"Facts file not found: {info.about_path}")
     elif not about.strip():
         errors.append(f"Facts file is empty: {info.about_path}")
-    if qa is not None:
-        from src.knowledge import looks_like_qa
-
-        if looks_like_qa(qa):
-            try:
-                parse_qa(qa)
-            except QAParseError as exc:
-                errors.append(f"qa.md parse error: {exc}")
+    if qa is None:
+        errors.append(f"Q&A file not found: {info.qa_path}")
+    else:
+        try:
+            parse_qa(qa)
+        except QAParseError as exc:
+            errors.append(f"qa.md parse error: {exc}")
     return errors
 
 
@@ -351,23 +276,8 @@ def _read_index_summary() -> tuple[dict[str, Any] | None, float | None]:
         "max_chars": payload.get("max_chars", 0),
         "qa_entries": qa_entries,
         "facts_entries": facts_entries,
-        "entry_count": _count_entries(metadata, ids),
     }
     return summary, path.stat().st_mtime
-
-
-def _count_entries(metadata: list[Any], ids: list[Any]) -> int:
-    """Count entries of every kind. Multi-vector rows share one entry id."""
-    seen: set[str] = set()
-    for index, row in enumerate(metadata):
-        if not isinstance(row, dict):
-            continue
-        entry = str(row.get("entry_id") or "")
-        if not entry:
-            entry = str(ids[index]) if index < len(ids) else ""
-        if entry:
-            seen.add(entry)
-    return len(seen)
 
 
 def _count_source_entries(

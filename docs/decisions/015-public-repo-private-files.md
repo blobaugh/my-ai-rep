@@ -12,7 +12,7 @@ The license is MIT (`LICENSE`). `.cursor/` is tracked so the project rules and s
 
 Eval case files in git are fictional examples (Avery Quinn / Northwind Studio). They do not name employers, family, or trips. The real Q&A answer fixture was removed; the pipeline does not need a copy of those answers in the repo. Saved eval results under `data/eval/` stay gitignored.
 
-`prompts/ben_system.md` is public on purpose. Hiding the system prompt is not the protection. Guards and verification are.
+`prompts/system.md` is public on purpose. Hiding the system prompt is not the protection. Guards and verification are. The file is a template: `BOT_NAME` and `HUMAN_NAME` come from `.env`, and the person's facts come from the content directory.
 
 A checkout with no private files still runs. `CONTENT_DIR` defaults to `content`. When that file is missing, the loader uses `{stem}.example.md` in the same directory. `examples/` holds a fictional person (Avery Quinn), not Ben. The checkout directory name is not part of the program.
 

@@ -20,7 +20,8 @@ from src.config import (
     settings_hash,
     voice_samples_enabled,
 )
-from src.guards import GUARD_REDIRECT, IDENTITY_REPLY, MISSING_DETAIL, match_guard
+from src.faithfulness import name_stopwords
+from src.guards import exempt_replies, match_guard, persona_lines
 from src.prompt import (
     ABOUT_PATH,
     apply_budget_guard,
@@ -105,10 +106,11 @@ def answer_turn(
     if not cleaned:
         answer = _skipped(settings, "", "invalid", question, started, reason="empty")
         return answer
-    guard = match_guard(cleaned)
+    lines = persona_lines(settings.human_name, settings.bot_name)
+    guard = match_guard(cleaned, human_name=settings.human_name)
     if guard:
         kind, pattern = guard
-        reply = IDENTITY_REPLY if kind == "identity" else GUARD_REDIRECT
+        reply = lines.identity if kind == "identity" else lines.off_topic
         answer = _guarded(settings, started, pattern, reply)
         _log_turn(settings, cleaned, answer)
         return answer
@@ -336,13 +338,13 @@ def _append_note(messages: Sequence[dict[str, str]], note: str) -> list[dict[str
     return copied
 
 
-def _best_entry_text(chunks: Sequence[RetrievedChunk]) -> str:
+def _best_entry_text(chunks: Sequence[RetrievedChunk], missing: str) -> str:
     """Verbatim body of the highest-scoring retrieved entry, or the 4.3 line."""
     if not chunks:
-        return MISSING_DETAIL
+        return missing
     best = max(chunks, key=lambda chunk: chunk.score)
     body = (best.body or "").strip()
-    return body or MISSING_DETAIL
+    return body or missing
 
 
 @dataclass
@@ -360,6 +362,15 @@ class _Checked:
     model_calls: int
 
 
+def _verify(text: str, knowledge_text: str, settings: Settings) -> Any:
+    return verify_answer(
+        text,
+        knowledge_text,
+        exempt=exempt_replies(settings.human_name, settings.bot_name),
+        name_stopwords=name_stopwords(settings.human_name, settings.bot_name),
+    )
+
+
 def _verify_or_fallback(
     text: str,
     knowledge_text: str,
@@ -373,7 +384,7 @@ def _verify_or_fallback(
     first_token: float,
 ) -> _Checked:
     """Check the answer. Prune flagged sentences, then one retry, then fallback."""
-    verdict = verify_answer(text, knowledge_text)
+    verdict = _verify(text, knowledge_text, settings)
     if verdict.ok:
         return _Checked(
             text, usage, finish, first_token, verdict.as_dict(), False, False, "", "none", [], 1
@@ -408,7 +419,7 @@ def _verify_or_fallback(
             clients=clients,
             on_delta=None,
         )
-        retry_verdict = verify_answer(retry_text, knowledge_text)
+        retry_verdict = _verify(retry_text, knowledge_text, settings)
         if retry_verdict.ok:
             payload = retry_verdict.as_dict()
             _remember_first_pass(payload, text, verdict)
@@ -433,7 +444,10 @@ def _verify_or_fallback(
     payload["retry_failed"] = True
     _remember_first_pass(payload, text, verdict)
     return _Checked(
-        _best_entry_text(chunks),
+        _best_entry_text(
+            chunks,
+            persona_lines(settings.human_name, settings.bot_name).missing,
+        ),
         usage,
         "fallback",
         first_token,
@@ -461,7 +475,7 @@ def _prune_if_usable(
     needed = minimum_kept(original_count, settings.verify_prune_min_sentences)
     if len(split_sentences(pruned)) < needed:
         return None
-    verdict = verify_answer(pruned, knowledge_text)
+    verdict = _verify(pruned, knowledge_text, settings)
     if not verdict.ok:
         return None
     return pruned, verdict
@@ -489,6 +503,8 @@ def _maybe_stuff(
             include_blog="blog" in settings.retrieval_sources,
             facts_in_prompt=settings.facts_in_prompt,
             about_path=about_path,
+            bot_name=settings.bot_name,
+            human_name=settings.human_name,
         )
     if settings.qa_mode != "stuff":
         return base, "", ""

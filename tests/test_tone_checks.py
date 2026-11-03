@@ -12,16 +12,19 @@ from src.tone_checks import (
     topic_covers_word,
 )
 
+WORDS = ["breakfast", "boat", "sailing", "saturday", "kids"]
+
 
 def test_find_leak_words_case_insensitive() -> None:
     text = "We had Breakfast on the Boat before Sailing."
-    assert find_leak_words(text) == ["breakfast", "boat", "sailing"]
+    assert find_leak_words(text, WORDS) == ["breakfast", "boat", "sailing"]
 
 
 def test_leak_check_flags_when_not_allowed() -> None:
     flags = check_topic_leaks(
         "I love sailing on Saturday with the kids.",
         allowed_topics=[],
+        leak_words=WORDS,
     )
     leaked = {f["leaked_word"] for f in flags}
     assert leaked == {"sailing", "saturday", "kids"}
@@ -32,20 +35,32 @@ def test_leak_check_ignores_allowed_topics() -> None:
     flags = check_topic_leaks(
         "I love sailing on Saturday with the kids.",
         allowed_topics=["sailing", "saturday", "kids"],
+        leak_words=WORDS,
     )
     assert flags == []
 
 
-def test_leak_check_fun_topic_covers_related_words() -> None:
+def test_allowed_topic_does_not_cover_a_different_word() -> None:
     flags = check_topic_leaks(
         "Bees in the apiary, then breakfast in the garden.",
         allowed_topics=["fun"],
+        leak_words=["bees", "apiary", "breakfast", "garden"],
     )
+    assert {flag["leaked_word"] for flag in flags} == {
+        "bees",
+        "apiary",
+        "breakfast",
+        "garden",
+    }
+
+
+def test_empty_word_list_stays_quiet() -> None:
+    flags = check_topic_leaks("I love sailing.", allowed_topics=[], leak_words=[])
     assert flags == []
 
 
-def test_topic_covers_word_direct_and_mapped() -> None:
-    assert topic_covers_word("boat", ["sailing"])
+def test_topic_covers_word_is_exact() -> None:
+    assert not topic_covers_word("boat", ["sailing"])
     assert topic_covers_word("boat", ["boat"])
     assert not topic_covers_word("boat", [])
     assert not topic_covers_word("boat", ["garden"])
