@@ -73,6 +73,13 @@ class Settings:
     bot_name: str = "Bot"
     human_name: str = ""
     topic_leak_words: tuple[str, ...] = ()
+    llm_primary_timeout_seconds: float = 120.0
+    llm_secondary_base_url: str = ""
+    llm_secondary_api_key: str = ""
+    llm_secondary_model: str = ""
+    llm_secondary_timeout_seconds: float = 120.0
+    failover_retry_seconds: float = 300.0
+    failover_on_http_status: tuple[int, ...] = ()
 
     def to_embed_config(self) -> EmbedConfig:
         return EmbedConfig(
@@ -99,6 +106,21 @@ class Settings:
             "LLM_BASE_URL": self.llm_base_url,
             "LLM_API_KEY": mask_secret(self.llm_api_key),
             "LLM_MODEL": self.llm_model,
+            "LLM_PRIMARY_TIMEOUT_SECONDS": _format_float(self.llm_primary_timeout_seconds),
+            "LLM_SECONDARY_BASE_URL": self.llm_secondary_base_url or "unset",
+            "LLM_SECONDARY_API_KEY": (
+                "unset" if not self.llm_secondary_base_url else mask_secret(self.llm_secondary_api_key)
+            ),
+            "LLM_SECONDARY_MODEL": self.llm_secondary_model or "unset",
+            "LLM_SECONDARY_TIMEOUT_SECONDS": (
+                "unset"
+                if not self.llm_secondary_base_url
+                else _format_float(self.llm_secondary_timeout_seconds)
+            ),
+            "FAILOVER_RETRY_SECONDS": _format_float(self.failover_retry_seconds),
+            "FAILOVER_ON_HTTP_STATUS": (
+                ",".join(str(code) for code in self.failover_on_http_status) or "unset"
+            ),
             "LLM_TEMPERATURE": _format_float(self.llm_temperature),
             "LLM_MAX_TOKENS": self.llm_max_tokens,
             "EMBED_MODEL": self.embed_model,
@@ -130,6 +152,7 @@ class Settings:
         """Unmasked canonical values. Used only as hash input, never printed."""
         data = {field.name: getattr(self, field.name) for field in fields(self)}
         data["topic_leak_words"] = list(data["topic_leak_words"])
+        data["failover_on_http_status"] = list(data["failover_on_http_status"])
         return data
 
 
@@ -273,6 +296,19 @@ def configure_logging(settings: Settings) -> None:
 def _parse_settings(data: Mapping[str, str]) -> Settings:
     llm_base = _str(data, "LLM_BASE_URL", "http://localhost:11434/v1")
     llm_key = _str(data, "LLM_API_KEY", "ollama")
+    llm_model = _str(data, "LLM_MODEL", "llama3.1:8b")
+    primary = _connection_group(data, "LLM_PRIMARY")
+    if primary is not None:
+        llm_base, llm_key, llm_model = primary
+    secondary = _connection_group(data, "LLM_SECONDARY")
+    if secondary is None:
+        secondary_base, secondary_key, secondary_model = "", "", ""
+        secondary_timeout = 120.0
+    else:
+        secondary_base, secondary_key, secondary_model = secondary
+        secondary_timeout = _float(
+            data, "LLM_SECONDARY_TIMEOUT_SECONDS", 120.0, minimum=1.0
+        )
     embed_base = _optional_text(data, "EMBED_BASE_URL")
     embed_key = _optional_text(data, "EMBED_API_KEY")
     qa_embed = _choice(data, "QA_EMBED_MODE", "multi", QA_EMBED_MODES)
@@ -291,7 +327,16 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
     return Settings(
         llm_base_url=llm_base,
         llm_api_key=llm_key,
-        llm_model=_str(data, "LLM_MODEL", "llama3.1:8b"),
+        llm_model=llm_model,
+        llm_primary_timeout_seconds=_float(
+            data, "LLM_PRIMARY_TIMEOUT_SECONDS", 120.0, minimum=1.0
+        ),
+        llm_secondary_base_url=secondary_base,
+        llm_secondary_api_key=secondary_key,
+        llm_secondary_model=secondary_model,
+        llm_secondary_timeout_seconds=secondary_timeout,
+        failover_retry_seconds=_float(data, "FAILOVER_RETRY_SECONDS", 300.0, minimum=0.0),
+        failover_on_http_status=_http_statuses(data),
         llm_temperature=_float(data, "LLM_TEMPERATURE", 0.0, minimum=0.0),
         llm_max_tokens=_int(data, "LLM_MAX_TOKENS", 600, minimum=1),
         embed_model=_str(data, "EMBED_MODEL", "nomic-embed-text"),
@@ -343,6 +388,50 @@ def _word_list(data: Mapping[str, str], name: str) -> tuple[str, ...]:
         seen.add(word)
         words.append(word)
     return tuple(words)
+
+
+def _connection_group(
+    data: Mapping[str, str], prefix: str
+) -> tuple[str, str, str] | None:
+    """Return base URL, key, and model when any of that group is set.
+
+    Blank means unset. Setting one of the three requires all three.
+    """
+    names = (f"{prefix}_BASE_URL", f"{prefix}_API_KEY", f"{prefix}_MODEL")
+    values = [_optional_text(data, name) for name in names]
+    if not any(values):
+        return None
+    missing = [name for name, value in zip(names, values) if not value]
+    if missing:
+        raise ValueError(
+            f"{missing[0]} is required when any {prefix}_* connection setting is set"
+        )
+    return values[0], values[1], values[2]
+
+
+def _http_statuses(data: Mapping[str, str]) -> tuple[int, ...]:
+    name = "FAILOVER_ON_HTTP_STATUS"
+    if name not in data or str(data[name]).strip() == "":
+        return ()
+    found: list[int] = []
+    seen: set[int] = set()
+    for part in str(data[name]).split(","):
+        raw = part.strip()
+        if not raw:
+            continue
+        try:
+            code = int(raw)
+        except ValueError as exc:
+            raise ValueError(
+                f"{name} must be a comma-separated list of HTTP status codes, got {raw!r}"
+            ) from exc
+        if code < 100 or code > 599:
+            raise ValueError(f"{name} must be an HTTP status code, got {raw!r}")
+        if code in seen:
+            continue
+        seen.add(code)
+        found.append(code)
+    return tuple(found)
 
 
 def _optional_text(data: Mapping[str, str], name: str) -> str:

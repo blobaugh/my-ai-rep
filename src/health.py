@@ -52,11 +52,9 @@ def run_health_checks(settings: Settings, *, probe: Probe | None = None) -> Heal
     if score_warning:
         warnings.append(score_warning)
 
-    for url in _endpoint_urls(settings):
-        if not info.reachable.get(url, False):
-            errors.append(unreachable_message(url))
-    if not any(unreachable_message(url) in errors for url in _endpoint_urls(settings)):
-        errors.extend(_missing_model_errors(settings, info))
+    errors.extend(_embedder_errors(settings, info))
+    warnings.extend(_chat_connection_warnings(settings, info))
+    errors.extend(_missing_model_errors(settings, info))
 
     errors.extend(_file_errors(info))
     qa_entries = 0
@@ -79,7 +77,9 @@ def run_health_checks(settings: Settings, *, probe: Probe | None = None) -> Heal
         f"k={settings.retrieval_k} qa_entries={qa_entries} "
         f"temperature={_temp(settings.llm_temperature)} "
         f"voice_samples={settings.voice_samples} "
-        f"query_turns={settings.retrieval_query_turns}"
+        f"query_turns={settings.retrieval_query_turns} "
+        f"chat_primary={_reach_word(info, settings.llm_base_url)} "
+        f"chat_secondary={_secondary_word(settings, info)}"
     )
     return HealthReport(
         errors=errors, warnings=warnings, ready_line=ready, qa_entries=qa_entries
@@ -152,10 +152,76 @@ def live_probe(settings: Settings) -> Probe:
 
 def _endpoint_urls(settings: Settings) -> list[str]:
     urls = [settings.llm_base_url.rstrip("/")]
+    if settings.llm_secondary_base_url:
+        secondary = settings.llm_secondary_base_url.rstrip("/")
+        if secondary not in urls:
+            urls.append(secondary)
     embed = settings.embed_base_url.rstrip("/")
     if embed not in urls:
         urls.append(embed)
     return urls
+
+
+def _embedder_errors(settings: Settings, info: Probe) -> list[str]:
+    embed_url = settings.embed_base_url.rstrip("/")
+    if info.reachable.get(embed_url, False):
+        return []
+    return [unreachable_message(embed_url)]
+
+
+def _chat_connection_warnings(settings: Settings, info: Probe) -> list[str]:
+    warnings: list[str] = []
+    embed_url = settings.embed_base_url.rstrip("/")
+    primary = settings.llm_base_url.rstrip("/")
+    if not info.reachable.get(primary, False) and primary != embed_url:
+        if settings.llm_secondary_base_url:
+            warnings.append(
+                f"WARNING chat primary is not reachable at {primary}. "
+                "Requests will try the secondary connection."
+            )
+        else:
+            warnings.append(
+                f"WARNING chat primary is not reachable at {primary}. "
+                "Answers will fail until it is up."
+            )
+    elif (
+        not info.reachable.get(primary, False)
+        and primary == embed_url
+        and settings.llm_secondary_base_url
+    ):
+        warnings.append(
+            "WARNING chat primary is not reachable. "
+            "Requests will try the secondary connection."
+        )
+    secondary = settings.llm_secondary_base_url.rstrip("/")
+    if secondary and not info.reachable.get(secondary, False) and secondary != embed_url:
+        warnings.append(
+            f"WARNING chat secondary is not reachable at {secondary}. "
+            "Failover cannot use it until it is up."
+        )
+    if secondary and _same_chat_connection(settings):
+        warnings.append(
+            "WARNING LLM_SECONDARY_* matches the primary connection, "
+            "so failover will not change hosts."
+        )
+    if (
+        secondary
+        and info.reachable.get(secondary, False)
+        and not _model_present(settings.llm_secondary_model, info.models.get(secondary, []))
+    ):
+        warnings.append(
+            f"WARNING secondary model {settings.llm_secondary_model!r} "
+            f"was not found at {secondary}."
+        )
+    return warnings
+
+
+def _same_chat_connection(settings: Settings) -> bool:
+    return (
+        settings.llm_secondary_base_url.rstrip("/") == settings.llm_base_url.rstrip("/")
+        and settings.llm_secondary_api_key == settings.llm_api_key
+        and settings.llm_secondary_model == settings.llm_model
+    )
 
 
 def _missing_model_errors(settings: Settings, info: Probe) -> list[str]:
@@ -171,6 +237,18 @@ def _missing_model_errors(settings: Settings, info: Probe) -> list[str]:
     ):
         errors.append(missing_embed_message(settings.embed_model, embed_url))
     return errors
+
+
+def _reach_word(info: Probe, url: str) -> str:
+    if info.reachable.get(url.rstrip("/"), False):
+        return "reachable"
+    return "unreachable"
+
+
+def _secondary_word(settings: Settings, info: Probe) -> str:
+    if not settings.llm_secondary_base_url:
+        return "unset"
+    return _reach_word(info, settings.llm_secondary_base_url)
 
 
 def _model_present(name: str, ids: list[str]) -> bool:

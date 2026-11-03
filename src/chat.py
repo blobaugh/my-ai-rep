@@ -9,7 +9,10 @@ from collections.abc import Sequence
 from src.config import Settings, configure_logging, format_settings, load_settings
 from src.guards import persona_lines
 from src.health import run_health_checks
+from src.llm_pool import ModelUnavailable
 from src.pipeline import Answer, answer_turn, append_turn
+
+UNAVAILABLE = "The model is not available right now. Please try again in a moment."
 
 HELP = """/reset  Clear this conversation and show the greeting again.
 /quit   Exit.
@@ -40,6 +43,10 @@ def format_debug(answer: Answer) -> str:
     )
     lines.append(f"[debug] usage: {answer.debug.get('usage')}")
     lines.append(f"[debug] finish_reason: {answer.finish_reason}")
+    if "connection_used" in answer.debug:
+        lines.append(f"[debug] connection_used={answer.debug.get('connection_used')}")
+        active = "true" if answer.debug.get("failover_active") else "false"
+        lines.append(f"[debug] failover_active={active}")
     timings = answer.debug.get("timings") or {}
     lines.append(
         "[debug] timings: "
@@ -117,9 +124,13 @@ def _ask(question: str, settings: Settings, *, debug: bool, stream: bool) -> int
         printed.append(piece)
         print(piece, end="", flush=True)
 
-    answer = answer_turn(
-        question, [], settings, on_delta=on_delta if stream else None
-    )
+    try:
+        answer = answer_turn(
+            question, [], settings, on_delta=on_delta if stream else None
+        )
+    except ModelUnavailable:
+        print(UNAVAILABLE, file=sys.stderr)
+        return 1
     if stream and printed:
         print()
     elif answer.text:
@@ -157,12 +168,16 @@ def _loop(settings: Settings, *, debug: bool, stream: bool) -> int:
             print(piece, end="", flush=True)
 
         print("Bot: ", end="", flush=True)
-        answer = answer_turn(
-            user_input,
-            history,
-            settings,
-            on_delta=on_delta if stream else None,
-        )
+        try:
+            answer = answer_turn(
+                user_input,
+                history,
+                settings,
+                on_delta=on_delta if stream else None,
+            )
+        except ModelUnavailable:
+            print(UNAVAILABLE, flush=True)
+            continue
         if stream and answer.debug.get("streamed"):
             print(flush=True)
         else:

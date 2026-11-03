@@ -21,6 +21,7 @@ from src.config import (
 )
 from src.faithfulness import name_stopwords
 from src.guards import exempt_replies, match_guard, persona_lines
+from src.llm_pool import LlmPool, ModelUnavailable, _NoFailover, pool_for
 from src.prompt import (
     ABOUT_PATH,
     apply_budget_guard,
@@ -160,13 +161,17 @@ def answer_turn(
     finish: str | None = None
     first_token = 0.0
     streamed = False
+    connection_used: str | None = None
+    failover_active = False
     try:
-        text, usage, finish, first_token, streamed = _call_model(
+        text, usage, finish, first_token, streamed, connection_used, failover_active = _call_model(
             settings,
             messages,
             clients=clients,
             on_delta=on_delta,
         )
+    except ModelUnavailable:
+        raise
     except Exception as exc:  # noqa: BLE001 — visitor gets a fixed sentence
         logger.warning("model call failed: %s", exc)
         text = TROUBLE
@@ -199,6 +204,8 @@ def answer_turn(
             usage=usage,
             finish=finish,
             first_token=first_token,
+            connection_used=connection_used,
+            failover_active=failover_active,
         )
         text = checked.text
         usage = checked.usage
@@ -211,6 +218,8 @@ def answer_turn(
         repair = checked.repair
         removed = checked.removed
         model_calls = checked.model_calls
+        connection_used = checked.connection_used
+        failover_active = checked.failover_active
 
     debug = {
         "query_used": query,
@@ -240,6 +249,8 @@ def answer_turn(
         "repair": repair,
         "removed_sentences": removed,
         "model_calls": model_calls,
+        "connection_used": connection_used,
+        "failover_active": failover_active,
     }
     answer = Answer(text=text, sources_block="", debug=debug, finish_reason=finish)
     _log_turn(settings, cleaned, answer)
@@ -343,6 +354,8 @@ class _Checked:
     repair: str
     removed: list[str]
     model_calls: int
+    connection_used: str | None = None
+    failover_active: bool = False
 
 
 def _verify(text: str, knowledge_text: str, settings: Settings) -> Any:
@@ -365,12 +378,26 @@ def _verify_or_fallback(
     usage: dict[str, Any] | None,
     finish: str | None,
     first_token: float,
+    connection_used: str | None,
+    failover_active: bool,
 ) -> _Checked:
     """Check the answer. Prune flagged sentences, then one retry, then fallback."""
     verdict = _verify(text, knowledge_text, settings)
     if verdict.ok:
         return _Checked(
-            text, usage, finish, first_token, verdict.as_dict(), False, False, "", "none", [], 1
+            text,
+            usage,
+            finish,
+            first_token,
+            verdict.as_dict(),
+            False,
+            False,
+            "",
+            "none",
+            [],
+            1,
+            connection_used,
+            failover_active,
         )
 
     flagged = verdict.flagged_sentences()
@@ -391,12 +418,22 @@ def _verify_or_fallback(
             "prune",
             flagged,
             1,
+            connection_used,
+            failover_active,
         )
 
     retry_text = ""
     retry_verdict = verdict
     try:
-        retry_text, usage2, finish2, first2, _streamed = _call_model(
+        (
+            retry_text,
+            usage2,
+            finish2,
+            first2,
+            _streamed,
+            connection_used,
+            failover_active,
+        ) = _call_model(
             settings,
             _append_note(messages, corrective_note(verdict)),
             clients=clients,
@@ -418,6 +455,8 @@ def _verify_or_fallback(
                 "retry",
                 flagged,
                 2,
+                connection_used,
+                failover_active,
             )
         usage, finish, first_token = usage2, finish2, first2
     except Exception as exc:  # noqa: BLE001 — fall back to a known entry
@@ -441,6 +480,8 @@ def _verify_or_fallback(
         "fallback",
         flagged,
         2,
+        connection_used,
+        failover_active,
     )
 
 
@@ -496,16 +537,59 @@ def _call_model(
     *,
     clients: Any,
     on_delta: Callable[[str], None] | None,
+) -> tuple[str, dict[str, Any] | None, str | None, float, bool, str | None, bool]:
+    if clients is not None and not isinstance(clients, LlmPool):
+        text, usage, finish, elapsed, streamed = _call_one_client(
+            clients, settings, settings.llm_model, messages, on_delta=on_delta
+        )
+        return text, usage, finish, elapsed, streamed, "primary", False
+
+    pool = clients if isinstance(clients, LlmPool) else pool_for(settings)
+    emitted: list[str] = []
+
+    def attempt(client: Any, model: str) -> tuple[str, dict[str, Any] | None, str | None, float, bool]:
+        def on_piece(piece: str) -> None:
+            emitted.append(piece)
+            if on_delta is not None:
+                on_delta(piece)
+
+        try:
+            return _call_one_client(
+                client,
+                settings,
+                model,
+                messages,
+                on_delta=on_piece if on_delta is not None else None,
+                retries=False,
+            )
+        except Exception as exc:
+            if emitted and on_delta is not None:
+                raise _NoFailover(exc) from exc
+            raise
+
+    value, used, active = pool.call(attempt)
+    return (*value, used, active)
+
+
+def _call_one_client(
+    client: Any,
+    settings: Settings,
+    model: str,
+    messages: Sequence[dict[str, str]],
+    *,
+    on_delta: Callable[[str], None] | None,
+    retries: bool = True,
 ) -> tuple[str, dict[str, Any] | None, str | None, float, bool]:
-    client = clients if clients is not None else make_chat_client(settings)
+    """One client. Injected test clients keep the three-attempt retry. The pool does not."""
+    attempts = 3 if retries else 1
     delay = 0.4
     last_error: Exception | None = None
-    for attempt in range(3):
+    for attempt in range(attempts):
         try:
             started = time.perf_counter()
             if on_delta is None:
                 completion = client.chat.completions.create(
-                    model=settings.llm_model,
+                    model=model,
                     messages=list(messages),
                     temperature=settings.llm_temperature,
                     max_tokens=settings.llm_max_tokens,
@@ -516,10 +600,10 @@ def _call_model(
                 finish = getattr(choice, "finish_reason", None)
                 elapsed = time.perf_counter() - started
                 return text, _usage(getattr(completion, "usage", None)), finish, elapsed, False
-            return _stream(client, settings, messages, on_delta, started)
+            return _stream(client, settings, model, messages, on_delta, started)
         except Exception as exc:
             last_error = exc
-            if not _retryable(exc) or attempt >= 2:
+            if not retries or not _retryable(exc) or attempt >= attempts - 1:
                 raise
             time.sleep(delay)
             delay *= 2
@@ -529,12 +613,13 @@ def _call_model(
 def _stream(
     client: Any,
     settings: Settings,
+    model: str,
     messages: Sequence[dict[str, str]],
     on_delta: Callable[[str], None],
     started: float,
 ) -> tuple[str, dict[str, Any] | None, str | None, float, bool]:
     stream = client.chat.completions.create(
-        model=settings.llm_model,
+        model=model,
         messages=list(messages),
         temperature=settings.llm_temperature,
         max_tokens=settings.llm_max_tokens,

@@ -182,6 +182,8 @@ def _row(case_id: str, question: str, answer: Any, flags: list[dict[str, Any]]) 
         "repair": answer.debug.get("repair") or "none",
         "removed_sentences": list(answer.debug.get("removed_sentences") or []),
         "model_calls": int(answer.debug.get("model_calls") or 0),
+        "connection_used": answer.debug.get("connection_used"),
+        "failover_active": bool(answer.debug.get("failover_active")),
         "draft_text": (answer.debug.get("verification") or {}).get("original_text")
         or answer.text,
         "timings": answer.debug.get("timings") or {},
