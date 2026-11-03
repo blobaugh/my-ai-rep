@@ -314,28 +314,21 @@ def test_empty_ask_exits_with_code_2(
     assert captured.out.strip() == "Ask me something."
 
 
-def test_stuff_mode_omits_the_no_match_notice(tmp_path) -> None:
-    qa = tmp_path / "qa.md"
-    qa.write_text(
-        "## one\nQ: Who are you?\nA: My name is Example.\n"
-        "source: example\nreview: draft\n",
-        encoding="utf-8",
-    )
+def test_empty_retrieval_announces_no_match() -> None:
     client = FakeClient("I coach teams.")
     answer_turn(
         "Who are you?",
         [],
-        _settings(QA_MODE="stuff"),
+        _settings(),
         clients=client,
-        qa_path=qa,
         system_prompt="SYS",
         retrieve_fn=lambda *_args, **_kwargs: [],
     )
     assert client.chat.completions.last_messages is not None
     user = client.chat.completions.last_messages[-1]["content"]
-    assert "No matching entries were found" not in user
+    assert "No matching entries were found" in user
     system = client.chat.completions.last_messages[0]["content"]
-    assert "My name is Example." in system
+    assert system == "SYS"
 
 
 @pytest.mark.integration

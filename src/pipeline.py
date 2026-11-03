@@ -14,7 +14,6 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 from src.config import (
     Settings,
-    indexed_source_types,
     prompt_hash,
     select_content_path,
     settings_hash,
@@ -27,12 +26,10 @@ from src.prompt import (
     apply_budget_guard,
     compose_retrieval_query,
     estimate_tokens,
-    facts_for_prompt,
     filter_chunks_by_min_score,
     load_system_prompt,
     trim_history,
 )
-from src.qa import QA_PATH, parse_qa, stuff_qa_into_system
 from src.retrieve import RetrievedChunk, retrieve_timed
 from src.verify import (
     ENTRY_BREAK,
@@ -87,7 +84,6 @@ def answer_turn(
     retrieve_fn: Callable[..., list[RetrievedChunk]] | None = None,
     system_prompt: str | None = None,
     on_delta: Callable[[str], None] | None = None,
-    qa_path: Path = QA_PATH,
 ) -> Answer:
     """Validate, retrieve, assemble, and call the model once."""
     started = time.perf_counter()
@@ -108,33 +104,32 @@ def answer_turn(
         _log_turn(settings, cleaned, answer)
         return answer
 
-    about_path = select_content_path(ABOUT_PATH, "about-ben", settings)
-    qa_path = select_content_path(qa_path, "qa", settings)
+    about_path = select_content_path(ABOUT_PATH, "about", settings)
     prompt_facts = ""
-    if system_prompt is None and about_path.is_file():
-        prompt_facts = facts_for_prompt(
-            about_path.read_text(encoding="utf-8"), settings.facts_in_prompt
+    if system_prompt is None:
+        active_system = load_system_prompt(
+            voice_samples=voice_samples_enabled(settings.voice_samples),
+            about_path=about_path,
+            bot_name=settings.bot_name,
+            human_name=settings.human_name,
         )
-    active_system, stuffed_knowledge, stuff_note = _maybe_stuff(
-        settings, system_prompt, qa_path, about_path
-    )
+        if about_path.is_file():
+            prompt_facts = about_path.read_text(encoding="utf-8")
+    else:
+        active_system = system_prompt
     query = compose_retrieval_query(
         history,
         cleaned,
         query_turns=settings.retrieval_query_turns,
         mode=settings.retrieval_query_mode,
     )
-    source_types = indexed_source_types(settings)
     embed_s = 0.0
     search_s = 0.0
-    chunks: list[RetrievedChunk] = []
-    if source_types:
-        chunks, embed_s, search_s = _search(
-            query,
-            settings,
-            source_types,
-            retrieve_fn=retrieve_fn,
-        )
+    chunks, embed_s, search_s = _search(
+        query,
+        settings,
+        retrieve_fn=retrieve_fn,
+    )
     chunks = filter_chunks_by_min_score(chunks, settings.retrieval_min_score)
     messages, used_chunks, budget_actions = apply_budget_guard(
         system_prompt=active_system,
@@ -142,7 +137,7 @@ def answer_turn(
         question=cleaned,
         chunks=chunks,
         budget_tokens=settings.context_budget_tokens,
-        announce_no_match=settings.qa_mode != "stuff",
+        announce_no_match=True,
     )
     sent_ids = {c.id for c in used_chunks}
     retrieved = [
@@ -157,7 +152,7 @@ def answer_turn(
         }
         for c in chunks
     ]
-    if source_types and not chunks:
+    if not chunks:
         logger.warning("zero entries were retrieved")
 
     model_error = ""
@@ -184,7 +179,7 @@ def answer_turn(
             settings.llm_max_tokens,
         )
 
-    knowledge_text = _knowledge_text(prompt_facts, stuffed_knowledge, used_chunks)
+    knowledge_text = _knowledge_text(prompt_facts, "", used_chunks)
     retry_used = False
     fallback_used = False
     retry_text = ""
@@ -235,9 +230,9 @@ def answer_turn(
         "grounding_text": "\n\n".join(str(m.get("content", "")) for m in messages),
         "knowledge_text": knowledge_text,
         "budget_actions": budget_actions,
-        "stuff_note": stuff_note,
+        "stuff_note": "",
         "error": model_error or None,
-        "zero_retrieved": bool(source_types) and not chunks,
+        "zero_retrieved": not chunks,
         "verification": verification,
         "retry_used": retry_used,
         "fallback_used": fallback_used,
@@ -302,8 +297,8 @@ def _knowledge_text(
 ) -> str:
     """Facts text actually placed in the prompt, plus entries actually sent.
 
-    Windows stay inside one unit. Under ``FACTS_IN_PROMPT=summary`` the bullets
-    are absent unless a facts entry was retrieved and sent.
+    Windows stay inside one unit. The about file is included in full when it
+    was placed in the prompt.
     """
     units: list[str] = []
     if prompt_facts.strip():
@@ -477,46 +472,9 @@ def _remember_first_pass(payload: dict[str, Any], original: str, verdict: Any) -
     payload["first_claims"] = list(verdict.unsupported_claims)
 
 
-def _maybe_stuff(
-    settings: Settings,
-    system_prompt: str | None,
-    qa_path: Path,
-    about_path: Path,
-) -> tuple[str, str, str]:
-    base = system_prompt
-    if base is None:
-        base = load_system_prompt(
-            voice_samples=voice_samples_enabled(settings.voice_samples),
-            facts_in_prompt=settings.facts_in_prompt,
-            about_path=about_path,
-            bot_name=settings.bot_name,
-            human_name=settings.human_name,
-        )
-    if settings.qa_mode != "stuff":
-        return base, "", ""
-    if not qa_path.is_file():
-        note = f"QA_MODE=stuff but {qa_path} missing; skipping stuff."
-        logger.warning(note)
-        return base, "", note
-    entries = parse_qa(qa_path.read_text(encoding="utf-8"))
-    active, used, fitted = stuff_qa_into_system(
-        base, entries, budget_tokens=settings.context_budget_tokens
-    )
-    if not fitted:
-        note = (
-            "QA_MODE=stuff: Q&A entries did not fit CONTEXT_BUDGET_TOKENS; "
-            "continuing without stuffing."
-        )
-        logger.warning(note)
-        return base, "", note
-    knowledge = "\n\n".join(f"Q: {e.question}\nA: {e.answer}" for e in used)
-    return active, knowledge, ""
-
-
 def _search(
     query: str,
     settings: Settings,
-    source_types: set[str],
     *,
     retrieve_fn: Callable[..., list[RetrievedChunk]] | None,
 ) -> tuple[list[RetrievedChunk], float, float]:
@@ -524,7 +482,6 @@ def _search(
         "k": settings.retrieval_k,
         "max_per_article": settings.retrieval_max_per_article,
         "min_score": settings.retrieval_min_score,
-        "source_types": source_types,
         "config": settings.to_embed_config(),
     }
     if retrieve_fn is not None:

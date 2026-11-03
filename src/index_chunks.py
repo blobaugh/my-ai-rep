@@ -48,10 +48,14 @@ def load_chunks(path: Path = CHUNKS_PATH) -> list[dict[str, Any]]:
 
 
 def load_all_chunks(directory: Path = CHUNKS_DIR) -> list[dict[str, Any]]:
-    """Load every ``*.jsonl`` under the chunks directory."""
+    """Load chunk JSONL files. ``chunks.jsonl`` is leftover blog output and is skipped."""
     if not directory.is_dir():
         raise FileNotFoundError(f"chunks directory not found: {directory}")
-    paths = sorted(directory.glob("*.jsonl"))
+    paths = [
+        path
+        for path in sorted(directory.glob("*.jsonl"))
+        if path.name != "chunks.jsonl"
+    ]
     if not paths:
         raise FileNotFoundError(f"no *.jsonl files in {directory}")
     chunks: list[dict[str, Any]] = []
@@ -416,7 +420,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
-        report = build_or_update_index(rebuild=args.rebuild)
+        from src.knowledge import KNOWLEDGE_CHUNKS_PATH
+
+        report = build_or_update_index(
+            chunks_path=KNOWLEDGE_CHUNKS_PATH, rebuild=args.rebuild
+        )
         print_report(report)
     except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)

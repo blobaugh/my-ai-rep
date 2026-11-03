@@ -219,7 +219,6 @@ def envelope(settings: Settings, system_prompt: str, cases: list[dict[str, Any]]
         "git_commit": git_commit(),
         "settings": settings.masked_dict(),
         "temperature": settings.llm_temperature,
-        "qa_mode": settings.qa_mode,
         "qa_embed_mode": settings.qa_embed_mode,
         "voice_samples": settings.voice_samples,
         "cases": cases,
@@ -228,21 +227,17 @@ def envelope(settings: Settings, system_prompt: str, cases: list[dict[str, Any]]
 
 def build_run_settings(
     *,
-    qa_mode: str | None = None,
     temperature: float | None = None,
     voice_samples: str | None = None,
     retrieval_k: int | None = None,
     query_turns: int | None = None,
     query_mode: str | None = None,
-    facts_in_prompt: str | None = None,
     ignore_min_score: bool = False,
     base: Settings | None = None,
 ) -> Settings:
     """Settings from config.py plus the explicit overrides for this run."""
     settings = base if base is not None else load_settings()
     changes: dict[str, Any] = {}
-    if qa_mode is not None:
-        changes["qa_mode"] = qa_mode
     if temperature is not None:
         changes["llm_temperature"] = temperature
     if voice_samples is not None:
@@ -253,8 +248,6 @@ def build_run_settings(
         changes["retrieval_query_turns"] = query_turns
     if query_mode is not None:
         changes["retrieval_query_mode"] = query_mode
-    if facts_in_prompt is not None:
-        changes["facts_in_prompt"] = facts_in_prompt
     if ignore_min_score:
         changes["retrieval_min_score"] = None
     if changes:
@@ -268,21 +261,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--k", type=int, default=None)
     parser.add_argument("--query-turns", type=int, default=None)
     parser.add_argument("--query-mode", default=None, choices=["auto", "turns"])
-    parser.add_argument("--facts-in-prompt", default=None, choices=["full", "summary"])
-    parser.add_argument("--qa-mode", default=None, choices=["retrieve", "stuff"])
     parser.add_argument("--tag", default="")
     args = parser.parse_args(argv)
     settings = build_run_settings(
-        qa_mode=args.qa_mode,
         temperature=args.temperature,
         retrieval_k=args.k,
         query_turns=args.query_turns,
         query_mode=args.query_mode,
-        facts_in_prompt=args.facts_in_prompt,
     )
     system = load_system_prompt(
         voice_samples=settings.voice_samples == "on",
-        facts_in_prompt=settings.facts_in_prompt,
         bot_name=settings.bot_name,
         human_name=settings.human_name,
     )

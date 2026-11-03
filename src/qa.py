@@ -363,21 +363,26 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         from src.config import load_settings
+        from src.knowledge import KNOWLEDGE_CHUNKS_PATH, write_content_chunks
 
-        mode = load_settings().qa_embed_mode
+        settings = load_settings()
+        mode = settings.qa_embed_mode
         if args.input != QA_PATH or args.output != QA_CHUNKS_PATH:
             text = args.input.read_text(encoding="utf-8")
             entries = parse_qa(text)
             n = write_qa_chunks(entries, args.output, embed_mode=mode)  # type: ignore[arg-type]
-            facts_n = 0
+            print(f"Wrote {n} Q&A chunks to {args.output} (embed_mode={mode})")
         else:
-            n, facts_n = write_knowledge_chunks(mode)
-    except (OSError, QAParseError, RuntimeError) as exc:
+            root = Path(settings.content_dir)
+            if not root.is_absolute():
+                root = Path.cwd() / root
+            n = write_content_chunks(root, embed_mode=mode)
+            print(
+                f"Wrote {n} chunks to {KNOWLEDGE_CHUNKS_PATH} (embed_mode={mode})"
+            )
+    except (OSError, QAParseError, RuntimeError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    print(f"Wrote {n} Q&A chunks to {args.output} (embed_mode={mode})")
-    if facts_n:
-        print(f"Wrote {facts_n} facts chunks to {FACTS_CHUNKS_PATH}")
     return 0
 
 

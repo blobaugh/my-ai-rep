@@ -44,17 +44,17 @@ source: bookkeeping only — never shown to the model
 review: draft | approved
 ```
 
-Fictional samples are committed under `examples/` (`about-ben.example.md`, `facts.example.md`, `qa.example.md`). They describe Avery Quinn. Copy them to `content/` without the `.example` suffix, replace with your own entries, then `python -m src.qa && python -m src.index_chunks`. A facts file may be named `about.md` or `about-ben.md`.
+Fictional samples are committed under `examples/` (`about.example.md`, `hobby.example.md`, `facts.example.md`, `qa.example.md`). They describe Avery Quinn. Copy `about.example.md` to `content/about.md` and the other samples to `content/` without the `.example` suffix, replace them with your own writing, then `python -m src.qa && python -m src.index_chunks`.
+
+`content/about.md` is sent on every turn. Every other markdown file under `content/` is searched. A file with `##` entry ids and `Q:` lines is optional Q&A. Any other file is split on headings and searched as prose. The closest `RETRIEVAL_K` passages (default 4) go in the user message.
 
 A checkout that has no `content/` directory can run against the samples:
 
 ```bash
-CONTENT_DIR=examples QA_MODE=stuff python -m src.chat --ask "Who are you?"
+CONTENT_DIR=examples python -m src.chat --ask "Who are you?"
 ```
 
-`CONTENT_DIR` defaults to `content`. The loader uses `{name}.md` in that directory, then `{name}.example.md`.
-
-Every indexed entry is knowledge about the person. The facts file is already in the prompt, so chat searches the Q&A entries and sends the closest ones. `QA_MODE=stuff` puts every Q&A entry in the system prompt instead of retrieving them.
+`CONTENT_DIR` defaults to `content`. The about file is `{dir}/about.md`, then `{dir}/about.example.md`.
 
 ### Chat context window
 

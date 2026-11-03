@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from src.config import indexed_source_types, load_embed_config, load_settings
+from src.config import load_embed_config, load_settings
 from src.embeddings import EmbedConfig, embed_texts
 from src.vector_store import NumpyVectorStore, SearchHit, VectorStore
 
@@ -275,7 +275,6 @@ def main(argv: list[str] | None = None) -> int:
             k=settings.retrieval_k,
             max_per_article=settings.retrieval_max_per_article,
             min_score=settings.retrieval_min_score,
-            source_types=indexed_source_types(settings),
             config=settings.to_embed_config(),
         )
     except (OSError, RuntimeError, ValueError) as exc:

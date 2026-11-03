@@ -12,8 +12,9 @@ from typing import Any
 from src.config import git_commit, load_embed_config, load_settings, prompt_hash
 from src.embeddings import EmbedConfig
 from src.index_chunks import INDEX_DIR, build_or_update_index
+from src.knowledge import KNOWLEDGE_CHUNKS_PATH, write_content_chunks
 from src.prompt import load_system_prompt
-from src.qa import Q_VECTOR_PREFIX_KIND, QA_EMBED_MODES, write_knowledge_chunks
+from src.qa import Q_VECTOR_PREFIX_KIND, QA_EMBED_MODES
 from src.retrieve import retrieve
 from src.vector_store import NumpyVectorStore
 
@@ -60,7 +61,6 @@ def evaluate(
             max_per_article=2,
             store=vector_store,
             config=cfg,
-            source_types={"qa", "facts"},
         )
         result_slugs = [r.slug for r in results]
         expected = list(case.get("expected_slugs") or [])
@@ -157,7 +157,6 @@ def _report_questions(store: NumpyVectorStore, cfg: EmbedConfig) -> list[dict[st
             max_per_article=2,
             store=store,
             config=cfg,
-            source_types={"qa", "facts"},
         )
         rows.append(
             {
@@ -180,8 +179,13 @@ def _report_questions(store: NumpyVectorStore, cfg: EmbedConfig) -> list[dict[st
 def reindex_for_mode(
     mode: str, *, q_vector_prefix: str | None = None, rebuild: bool = False
 ) -> None:
-    write_knowledge_chunks(mode)
+    settings = load_settings()
+    root = Path(settings.content_dir)
+    if not root.is_absolute():
+        root = Path.cwd() / root
+    write_content_chunks(root, embed_mode=mode)
     build_or_update_index(
+        chunks_path=KNOWLEDGE_CHUNKS_PATH,
         qa_embed_mode=mode,
         q_vector_prefix=q_vector_prefix or Q_VECTOR_PREFIX_KIND,
         rebuild=rebuild,

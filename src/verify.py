@@ -5,8 +5,8 @@ with the best knowledge window is below SUPPORT_THRESHOLD, or when it contains
 a claim token or a characterization word the knowledge does not.
 
 A window is one knowledge sentence, or two or three consecutive sentences.
-Windows stay inside one entry or one facts-file section. They do not cross
-an entry break or a markdown heading.
+Windows stay inside one retrieved entry or one section of the about file.
+They do not cross an entry break or a markdown heading.
 
 What this cannot judge: a word that also appears somewhere in the knowledge
 can make an invented sentence look supported.
@@ -29,7 +29,7 @@ from src.faithfulness import check_faithfulness
 # window and above it when neighboring sentences are visible.
 SUPPORT_THRESHOLD = 0.55
 
-# Separates facts-file text from each retrieved or stuffed entry.
+# Separates the about file from each retrieved entry.
 ENTRY_BREAK = "\f"
 
 _HEADING = re.compile(r"^#{1,6}\s+\S")

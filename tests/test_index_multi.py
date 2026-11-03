@@ -48,7 +48,7 @@ def test_load_all_chunks_and_incremental_qa(tmp_path: Path) -> None:
         json.dumps(qa) + "\n", encoding="utf-8"
     )
     loaded = load_all_chunks(chunks_dir)
-    assert {c["id"] for c in loaded} == {"blog#0", "qa#intro"}
+    assert {c["id"] for c in loaded} == {"qa#intro"}
 
     index_dir = tmp_path / "index"
     r1 = build_or_update_index(
@@ -58,7 +58,7 @@ def test_load_all_chunks_and_incremental_qa(tmp_path: Path) -> None:
         embed_fn=fake_embed_texts,
         qa_embed_mode="question_and_answer",
     )
-    assert r1["embedded"] == 2
+    assert r1["embedded"] == 1
     r2 = build_or_update_index(
         chunks_dir=chunks_dir,
         index_dir=index_dir,
@@ -67,7 +67,7 @@ def test_load_all_chunks_and_incremental_qa(tmp_path: Path) -> None:
         qa_embed_mode="question_and_answer",
     )
     assert r2["embedded"] == 0
-    assert r2["unchanged"] == 2
+    assert r2["unchanged"] == 1
 
     # Edit one answer → only that Q&A row re-embeds.
     entry2 = parse_qa(
@@ -86,7 +86,7 @@ def test_load_all_chunks_and_incremental_qa(tmp_path: Path) -> None:
         qa_embed_mode="question_and_answer",
     )
     assert r3["embedded"] == 1
-    assert r3["unchanged"] == 1
+    assert r3["unchanged"] == 0
 
     # Mode change forces Q&A re-embed even if answer hash unchanged.
     r4 = build_or_update_index(

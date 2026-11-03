@@ -21,10 +21,8 @@ from dotenv import load_dotenv
 
 from src.embeddings import EmbedConfig
 
-QA_MODES = frozenset({"retrieve", "stuff"})
 QA_EMBED_MODES = frozenset({"question_and_answer", "question_only", "multi"})
 QUERY_MODES = frozenset({"auto", "turns"})
-FACTS_IN_PROMPT_MODES = frozenset({"full", "summary"})
 ON_OFF = frozenset({"on", "off"})
 LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
 
@@ -65,10 +63,8 @@ class Settings:
     retrieval_min_score: float | None = None
     retrieval_query_mode: str = "auto"
     retrieval_query_turns: int = 2
-    facts_in_prompt: str = "full"
     history_turns: int = 6
     context_budget_tokens: int = 7000
-    qa_mode: str = "retrieve"
     voice_samples: str = "off"
     log_level: str = "WARNING"
     log_turns: str = "off"
@@ -118,10 +114,8 @@ class Settings:
             "RETRIEVAL_MIN_SCORE": min_score,
             "RETRIEVAL_QUERY_MODE": self.retrieval_query_mode,
             "RETRIEVAL_QUERY_TURNS": self.retrieval_query_turns,
-            "FACTS_IN_PROMPT": self.facts_in_prompt,
             "HISTORY_TURNS": self.history_turns,
             "CONTEXT_BUDGET_TOKENS": self.context_budget_tokens,
-            "QA_MODE": self.qa_mode,
             "VOICE_SAMPLES": self.voice_samples,
             "LOG_LEVEL": self.log_level,
             "LOG_TURNS": self.log_turns,
@@ -197,42 +191,30 @@ def git_commit() -> str:
 # Historical defaults. Callers that pass one of these paths get CONTENT_DIR
 # resolution. Any other path is used as given (tests monkeypatch these).
 DEFAULT_CONTENT_FILES = {
-    "about-ben": Path("content/about-ben.md"),
+    "about": Path("content/about.md"),
     "qa": Path("content/qa.md"),
     "facts": Path("content/facts.md"),
-}
-
-
-# Facts files. ``about.md`` is the generic name. ``about-ben.md`` still loads
-# so an existing content directory keeps working.
-_CONTENT_ALIASES = {
-    "about": ("about", "about-ben"),
-    "about-ben": ("about", "about-ben"),
 }
 
 
 def resolve_content_file(stem: str, settings: Settings | None = None) -> Path:
     """Find ``{stem}.md`` under CONTENT_DIR, then ``{stem}.example.md``.
 
-    The facts stem also accepts the other facts filename. Returns the
-    preferred path when neither file exists, so callers can report the path
-    they expected.
+    Returns the preferred path when neither file exists, so callers can
+    report the path they expected.
     """
     if settings is None:
         settings = load_settings()
     root = Path(settings.content_dir)
     if not root.is_absolute():
         root = _ROOT / root
-    stems = _CONTENT_ALIASES.get(stem, (stem,))
-    for candidate in stems:
-        primary = root / f"{candidate}.md"
-        if primary.is_file():
-            return _display_path(primary)
-    for candidate in stems:
-        example = root / f"{candidate}.example.md"
-        if example.is_file():
-            return _display_path(example)
-    return _display_path(root / f"{stems[0]}.md")
+    primary = root / f"{stem}.md"
+    if primary.is_file():
+        return _display_path(primary)
+    example = root / f"{stem}.example.md"
+    if example.is_file():
+        return _display_path(example)
+    return _display_path(primary)
 
 
 def select_content_path(explicit: Path, stem: str, settings: Settings) -> Path:
@@ -293,10 +275,7 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
     llm_key = _str(data, "LLM_API_KEY", "ollama")
     embed_base = _optional_text(data, "EMBED_BASE_URL")
     embed_key = _optional_text(data, "EMBED_API_KEY")
-    qa_mode = _choice(data, "QA_MODE", "retrieve", QA_MODES)
-    qa_embed = _choice(
-        data, "QA_EMBED_MODE", "multi", QA_EMBED_MODES
-    )
+    qa_embed = _choice(data, "QA_EMBED_MODE", "multi", QA_EMBED_MODES)
     voice_raw = data.get("VOICE_SAMPLES")
     if voice_raw is None or str(voice_raw).strip() == "":
         voice = "off"
@@ -330,10 +309,8 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
         retrieval_min_score=_min_score(data),
         retrieval_query_mode=_choice(data, "RETRIEVAL_QUERY_MODE", "auto", QUERY_MODES),
         retrieval_query_turns=_int(data, "RETRIEVAL_QUERY_TURNS", 2, minimum=1),
-        facts_in_prompt=_choice(data, "FACTS_IN_PROMPT", "full", FACTS_IN_PROMPT_MODES),
         history_turns=_int(data, "HISTORY_TURNS", 6, minimum=0),
         context_budget_tokens=_int(data, "CONTEXT_BUDGET_TOKENS", 7000, minimum=0),
-        qa_mode=qa_mode,
         voice_samples=voice,
         bot_name=_str(data, "BOT_NAME", "Bot"),
         human_name=_str(data, "HUMAN_NAME", ""),
@@ -435,16 +412,6 @@ def _choice(
         options = ", ".join(sorted(allowed))
         raise ValueError(f"{name} must be one of {options}, got {raw!r}")
     return raw
-
-
-def indexed_source_types(settings: Settings) -> set[str]:
-    """Entries to search. Text already placed in the prompt is not searched again."""
-    types = {"qa", "facts"}
-    if settings.qa_mode == "stuff":
-        types.discard("qa")
-    if settings.facts_in_prompt == "full":
-        types.discard("facts")
-    return types
 
 
 def _format_float(value: float) -> str:

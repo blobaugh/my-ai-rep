@@ -243,7 +243,6 @@ def run_case(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Guardrail eval")
     parser.add_argument("--cases", type=Path, default=CASES_PATH)
-    parser.add_argument("--qa-mode", default=None, choices=["retrieve", "stuff"])
     parser.add_argument("--tag", default="")
     parser.add_argument(
         "--ignore-min-score",
@@ -256,14 +255,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     settings = build_run_settings(
-        qa_mode=args.qa_mode,
         temperature=args.temperature,
         voice_samples=args.voice_samples,
         ignore_min_score=args.ignore_min_score,
     )
     system = load_system_prompt(
         voice_samples=settings.voice_samples == "on",
-        facts_in_prompt=settings.facts_in_prompt,
         bot_name=settings.bot_name,
         human_name=settings.human_name,
     )
@@ -272,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     cases = load_cases(args.cases)
     print(
-        f"Config: qa_mode={settings.qa_mode} voice_samples={settings.voice_samples} "
+        f"Config: voice_samples={settings.voice_samples} "
         f"model={settings.llm_model} temperature={settings.llm_temperature}"
     )
     rows = []

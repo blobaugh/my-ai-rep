@@ -216,30 +216,6 @@ def compose_retrieval_query(
     return "\n".join(parts)
 
 
-def facts_for_prompt(about_text: str, mode: str) -> str:
-    """Facts text placed in the system prompt.
-
-    ``full`` is the whole file. ``summary`` is the opening paragraph only,
-    the prose before the first ``##`` heading.
-    """
-    if mode not in {"full", "summary"}:
-        raise ValueError(f"FACTS_IN_PROMPT must be full or summary, got {mode!r}")
-    if mode == "full":
-        return about_text
-    kept: list[str] = []
-    started = False
-    for line in about_text.splitlines():
-        if line.startswith("##"):
-            break
-        if line.startswith("# ") and not started:
-            continue
-        if line.strip():
-            started = True
-        if started:
-            kept.append(line)
-    return "\n".join(kept).strip()
-
-
 def estimate_tokens(messages: Sequence[dict[str, Any]]) -> int:
     """Rough token estimate: sum(len(content)) / CHARS_PER_TOKEN, rounded up."""
     total_chars = 0
@@ -315,7 +291,7 @@ def apply_budget_guard(
 
 
 PROMPT_PATH = Path("prompts/system.md")
-ABOUT_PATH = Path("content/about-ben.md")
+ABOUT_PATH = Path("content/about.md")
 VOICE_SAMPLES_PATH = Path("prompts/voice_samples.md")
 
 
@@ -325,15 +301,13 @@ def load_system_prompt(
     about_path: Path = ABOUT_PATH,
     voice_samples_path: Path = VOICE_SAMPLES_PATH,
     voice_samples: bool = False,
-    facts_in_prompt: str = "full",
     bot_name: str | None = None,
     human_name: str | None = None,
 ) -> str:
     """Fill template placeholders. Voice samples sit after the rules.
 
-    ``facts_in_prompt`` is ``full`` (the whole facts file) or ``summary``
-    (the opening paragraph only). Names and the fixed replies come from
-    settings unless the caller passes them.
+    The about file is inserted in full. Names and the fixed replies come
+    from settings unless the caller passes them.
     """
     from src.guards import persona_lines
 
@@ -347,7 +321,7 @@ def load_system_prompt(
 
         assert settings is not None
         if settings.content_dir not in ("", "content") or not about_path.is_file():
-            about_path = resolve_content_file("about-ben", settings)
+            about_path = resolve_content_file("about", settings)
     if bot_name is None or human_name is None:
         assert settings is not None
         if bot_name is None:
@@ -356,7 +330,7 @@ def load_system_prompt(
             human_name = settings.human_name
     lines = persona_lines(human_name, bot_name)
     template = prompt_path.read_text(encoding="utf-8")
-    about = facts_for_prompt(about_path.read_text(encoding="utf-8"), facts_in_prompt)
+    about = about_path.read_text(encoding="utf-8") if about_path.is_file() else ""
     if voice_samples and voice_samples_path.is_file():
         voice_block = voice_samples_path.read_text(encoding="utf-8").rstrip() + "\n\n"
     else:

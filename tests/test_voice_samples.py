@@ -66,8 +66,8 @@ def test_system_prompt_inserts_voice_before_about_when_on(tmp_path: Path) -> Non
 
 
 def test_real_prompt_off_has_no_voice_placeholder() -> None:
-    if not Path("content/about-ben.md").is_file():
-        pytest.skip("content/about-ben.md not present")
+    if not Path("content/about.md").is_file():
+        pytest.skip("content/about.md not present")
     text = load_system_prompt(voice_samples=False)
     assert "{{VOICE_SAMPLES}}" not in text
     assert "{{ABOUT_BEN}}" not in text
@@ -80,8 +80,8 @@ def test_real_prompt_off_has_no_voice_placeholder() -> None:
 
 
 def test_real_prompt_on_places_voice_after_rules() -> None:
-    if not Path("content/about-ben.md").is_file():
-        pytest.skip("content/about-ben.md not present")
+    if not Path("content/about.md").is_file():
+        pytest.skip("content/about.md not present")
     if not Path("prompts/voice_samples.md").is_file():
         pytest.skip("prompts/voice_samples.md not present")
     text = load_system_prompt(voice_samples=True)

@@ -9,16 +9,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from src.config import (
-    Settings,
-    indexed_source_types,
-    min_score_warning,
-    resolve_content_file,
-)
+from src.config import Settings, min_score_warning, resolve_content_file
 from src.qa import QAParseError, parse_qa
 
 PROMPT_PATH = Path("prompts/system.md")
-ABOUT_PATH = Path("content/about-ben.md")
+ABOUT_PATH = Path("content/about.md")
 QA_PATH = Path("content/qa.md")
 INDEX_DIR = Path("data/index")
 CHUNKS_DIR = Path("data/chunks")
@@ -70,17 +65,11 @@ def run_health_checks(settings: Settings, *, probe: Probe | None = None) -> Heal
     else:
         errors.extend(_index_mismatch_errors(settings, info.index))
         qa_entries = int(info.index.get("qa_entries") or 0)
-        facts_entries = int(info.index.get("facts_entries") or 0)
-        indexed = indexed_source_types(settings)
-        if "qa" in indexed and qa_entries < 1:
+        entry_count = int(info.index.get("entry_count") or 0)
+        if entry_count < 1 and qa_entries < 1:
             errors.append(
-                "The index has no Q&A entries. "
-                "Run python -m src.qa && python -m src.index_chunks"
-            )
-        if "facts" in indexed and facts_entries < 1:
-            errors.append(
-                "The index has no facts entries. "
-                "Run python -m src.qa && python -m src.index_chunks"
+                "The index has no entries. "
+                "Run python -m src.qa && python -m src.index_chunks --rebuild"
             )
         if _index_is_stale(info):
             warnings.append(STALE_WARNING)
@@ -134,7 +123,7 @@ def live_probe(settings: Settings) -> Probe:
             reachable[url] = False
             models[url] = []
     index, index_mtime = _read_index_summary()
-    about_path = resolve_content_file("about-ben", settings)
+    about_path = resolve_content_file("about", settings)
     qa_path = resolve_content_file("qa", settings)
     texts = {
         "prompt": _read(PROMPT_PATH),
@@ -146,6 +135,8 @@ def live_probe(settings: Settings) -> Probe:
         source_mtimes.append(qa_path.stat().st_mtime)
     if CHUNKS_DIR.is_dir():
         for path in CHUNKS_DIR.glob("*.jsonl"):
+            if path.name == "chunks.jsonl":
+                continue
             source_mtimes.append(path.stat().st_mtime)
     return Probe(
         reachable=reachable,
@@ -202,13 +193,14 @@ def _file_errors(info: Probe) -> list[str]:
         errors.append(f"Facts file not found: {info.about_path}")
     elif not about.strip():
         errors.append(f"Facts file is empty: {info.about_path}")
-    if qa is None:
-        errors.append(f"Q&A file not found: {info.qa_path}")
-    else:
-        try:
-            parse_qa(qa)
-        except QAParseError as exc:
-            errors.append(f"qa.md parse error: {exc}")
+    if qa is not None:
+        from src.knowledge import looks_like_qa
+
+        if looks_like_qa(qa):
+            try:
+                parse_qa(qa)
+            except QAParseError as exc:
+                errors.append(f"qa.md parse error: {exc}")
     return errors
 
 
@@ -281,8 +273,23 @@ def _read_index_summary() -> tuple[dict[str, Any] | None, float | None]:
         "max_chars": payload.get("max_chars", 0),
         "qa_entries": qa_entries,
         "facts_entries": facts_entries,
+        "entry_count": _count_entries(metadata, ids),
     }
     return summary, path.stat().st_mtime
+
+
+def _count_entries(metadata: list[Any], ids: list[Any]) -> int:
+    """Count entries of every kind. Multi-vector rows share one entry id."""
+    seen: set[str] = set()
+    for index, row in enumerate(metadata):
+        if not isinstance(row, dict):
+            continue
+        entry = str(row.get("entry_id") or "")
+        if not entry:
+            entry = str(ids[index]) if index < len(ids) else ""
+        if entry:
+            seen.add(entry)
+    return len(seen)
 
 
 def _count_source_entries(

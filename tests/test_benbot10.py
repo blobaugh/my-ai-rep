@@ -104,7 +104,6 @@ def test_defaults_match_spec() -> None:
     assert settings.retrieval_max_per_article == 2
     assert settings.retrieval_query_turns == 2
     assert settings.retrieval_query_mode == "auto"
-    assert settings.facts_in_prompt == "full"
     assert settings.qa_embed_mode == "multi"
     assert settings.voice_samples == "off"
     assert settings.retrieval_min_score is None
@@ -161,7 +160,16 @@ def test_health_failure_messages() -> None:
     report = run_health_checks(settings, probe=missing_about)
     assert any("Facts file not found" in line for line in report.errors)
 
-    bad_qa = _probe(texts={"prompt": "rules", "about": "facts", "qa": "not qa"})
+    bad_qa = _probe(
+        texts={
+            "prompt": "rules",
+            "about": "facts",
+            "qa": (
+                "## broken\nQ: Hello\nA: Hi\nsource: x\nreview: draft\n"
+                "not an answer\n"
+            ),
+        }
+    )
     report = run_health_checks(settings, probe=bad_qa)
     assert any(line.startswith("qa.md parse error:") for line in report.errors)
 
@@ -201,7 +209,7 @@ def test_health_failure_messages() -> None:
         }
     )
     report = run_health_checks(settings, probe=no_qa)
-    assert any("no Q&A entries" in line for line in report.errors)
+    assert any("no entries" in line for line in report.errors)
 
     stale = _probe(index_mtime=1.0, source_mtimes=[5.0])
     report = run_health_checks(settings, probe=stale)

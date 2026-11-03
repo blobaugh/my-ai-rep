@@ -22,7 +22,7 @@ from src.config import load_settings
 from src.guards import persona_lines
 
 RESULTS = Path("data/eval")
-ABOUT = Path("content/about-ben.md")
+ABOUT = Path("content/about.md")
 QA = Path("content/qa.md")
 
 

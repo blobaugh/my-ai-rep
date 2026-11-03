@@ -8,7 +8,7 @@ import pytest
 
 from src.index_chunks import IndexCompatibilityError, build_or_update_index
 from src.pipeline import answer_turn
-from src.prompt import compose_retrieval_query, facts_for_prompt, is_followup
+from src.prompt import compose_retrieval_query, is_followup
 from src.qa import expand_multi_vectors, parse_qa, split_phrasings
 from src.retrieve import collapse_to_entries
 from src.vector_store import SearchHit
@@ -160,8 +160,8 @@ def test_multi_index_is_incremental_and_mode_change_requires_rebuild(tmp_path: P
         q_vector_prefix="query",
         rebuild=True,
     )
-    # two phrasings + one qa vector + the blog row
-    assert first["embedded"] == 4
+    # two phrasings + one qa vector; leftover chunks.jsonl is not an input
+    assert first["embedded"] == 3
     assert first["qa_vector_mode"] == "multi"
     second = build_or_update_index(
         chunks_dir=chunks_dir,
@@ -251,10 +251,12 @@ def _chunk(entry_id: str, body: str, source: str) -> object:
     )
 
 
-def test_knowledge_text_matches_full_and_summary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_about_file_stays_in_the_prompt_with_retrieved_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     about = tmp_path / "about.md"
     about.write_text(
-        "# About\n\nOpening paragraph about Ben.\n\n## Work\n- Secret studio bullet.\n",
+        "# About\n\nOpening paragraph.\n\n## Work\n- Secret studio bullet.\n",
         encoding="utf-8",
     )
     monkeypatch.setattr("src.pipeline.ABOUT_PATH", about)
@@ -267,34 +269,21 @@ def test_knowledge_text_matches_full_and_summary(tmp_path: Path, monkeypatch: py
         ]
 
     _COMPLETION_CALLS.clear()
-    summary = answer_turn(
+    answer = answer_turn(
         "Tell me about retreats",
         [],
-        load_settings(environ={"FACTS_IN_PROMPT": "summary"}),
+        load_settings(environ={}),
         clients=_Client(),
         retrieve_fn=retrieve,
     )
-    knowledge = summary.debug["knowledge_text"]
-    assert "Opening paragraph about Ben." in knowledge
-    assert "Secret studio bullet." not in knowledge
+    knowledge = answer.debug["knowledge_text"]
+    assert "Opening paragraph." in knowledge
+    assert "Secret studio bullet." in knowledge
     assert "four coaching retreats" in knowledge
     assert "leadership consultant" in knowledge
-    summary_system = str(_COMPLETION_CALLS[0][0]["content"])  # type: ignore[index]
-    assert "Opening paragraph about Ben." in summary_system
-    assert "Secret studio bullet." not in summary_system
-
-    _COMPLETION_CALLS.clear()
-    full = answer_turn(
-        "Tell me about retreats",
-        [],
-        load_settings(environ={"FACTS_IN_PROMPT": "full"}),
-        clients=_Client(),
-        retrieve_fn=retrieve,
-    )
-    full_knowledge = full.debug["knowledge_text"]
-    assert "Secret studio bullet." in full_knowledge
-    assert "four coaching retreats" in full_knowledge
-    full_system = str(_COMPLETION_CALLS[0][0]["content"])  # type: ignore[index]
-    assert "Secret studio bullet." in full_system
-    assert "Opening paragraph" in facts_for_prompt(about.read_text(), "summary")
-    assert "Secret" not in facts_for_prompt(about.read_text(), "summary")
+    system = str(_COMPLETION_CALLS[0][0]["content"])  # type: ignore[index]
+    assert "Opening paragraph." in system
+    assert "Secret studio bullet." in system
+    user = str(_COMPLETION_CALLS[0][-1]["content"])  # type: ignore[index]
+    assert "four coaching retreats" in user
+    assert "Secret studio bullet." not in user
