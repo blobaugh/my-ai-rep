@@ -89,6 +89,29 @@ services:
       - /tmp
     command: ["python", "-m", "src.ingest"]
 
+  backup:
+    container_name: benbot_backup
+    image: ${BENBOT_IMAGE_PREFIX:-benbot}/backup:${BENBOT_TAG:-latest}
+    platform: linux/amd64
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_PATH: /app/data/benbot.sqlite
+    volumes:
+      - ${BENBOT_HOME:-.}/data:/app/data:ro
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   embedder:
     container_name: benbot_embedder
     image: ${BENBOT_IMAGE_PREFIX:-benbot}/embedder:${BENBOT_TAG:-latest}

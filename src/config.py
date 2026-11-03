@@ -94,6 +94,16 @@ class Settings:
     frame_ancestors: tuple[str, ...] = ()
     api_host: str = "127.0.0.1"
     api_port: int = 8000
+    backup_interval_minutes: int = 60
+    spaces_endpoint: str = ""
+    spaces_bucket: str = ""
+    spaces_prefix: str = ""
+    spaces_key: str = ""
+    spaces_secret: str = ""
+    spaces_region: str = "us-east-1"
+    spaces_addressing_style: str = "auto"
+    backup_ping_url: str = ""
+    backup_content: str = "off"
 
     def to_embed_config(self) -> EmbedConfig:
         return EmbedConfig(
@@ -174,6 +184,16 @@ class Settings:
             "FRAME_ANCESTORS": " ".join(self.frame_ancestors) or "unset",
             "API_HOST": self.api_host,
             "API_PORT": self.api_port,
+            "BACKUP_INTERVAL_MINUTES": self.backup_interval_minutes,
+            "SPACES_ENDPOINT": self.spaces_endpoint or "unset",
+            "SPACES_BUCKET": self.spaces_bucket or "unset",
+            "SPACES_PREFIX": self.spaces_prefix or "unset",
+            "SPACES_KEY": mask_secret(self.spaces_key),
+            "SPACES_SECRET": mask_secret(self.spaces_secret),
+            "SPACES_REGION": self.spaces_region,
+            "SPACES_ADDRESSING_STYLE": self.spaces_addressing_style,
+            "BACKUP_PING_URL": self.backup_ping_url or "unset",
+            "BACKUP_CONTENT": self.backup_content,
             "BOT_NAME": self.bot_name,
             "HUMAN_NAME": self.human_name,
             "TOPIC_LEAK_WORDS": ",".join(self.topic_leak_words),
@@ -411,6 +431,18 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
         frame_ancestors=_frame_ancestors(data),
         api_host=_str(data, "API_HOST", "127.0.0.1"),
         api_port=_int(data, "API_PORT", 8000, minimum=1),
+        backup_interval_minutes=_int(
+            data, "BACKUP_INTERVAL_MINUTES", 60, minimum=1
+        ),
+        spaces_endpoint=_str(data, "SPACES_ENDPOINT", ""),
+        spaces_bucket=_str(data, "SPACES_BUCKET", ""),
+        spaces_prefix=_str(data, "SPACES_PREFIX", ""),
+        spaces_key=_str(data, "SPACES_KEY", ""),
+        spaces_secret=_str(data, "SPACES_SECRET", ""),
+        spaces_region=_str(data, "SPACES_REGION", "us-east-1"),
+        spaces_addressing_style=_str(data, "SPACES_ADDRESSING_STYLE", "auto"),
+        backup_ping_url=_str(data, "BACKUP_PING_URL", ""),
+        backup_content=_choice(data, "BACKUP_CONTENT", "off", ON_OFF),
     )
 
 

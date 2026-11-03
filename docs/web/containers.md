@@ -107,4 +107,10 @@ docker compose --profile tools run --rm ingest
 
 Dev merge mounts `examples/` at `/content`. See `docs/deploy/content.md`.
 
-Backup service is added in BENBOT-26.
+## Backup
+
+| Service | Image | Networks | Notes |
+|---|---|---|---|
+| backup | `benbot/backup` | default (egress only) | `python -m src.backup loop`; data volume **read-only** |
+
+See `docs/deploy/backup-restore.md`. Dev compose adds MinIO and points `SPACES_*` at it.

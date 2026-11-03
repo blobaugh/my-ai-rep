@@ -17,6 +17,7 @@ def test_production_compose_is_pull_only() -> None:
     assert "container_name: benbot_api" in PROD
     assert "container_name: benbot_web" in PROD
     assert "container_name: benbot_embedder" in PROD
+    assert "container_name: benbot_backup" in PROD
     assert "profiles:" in PROD
     assert 'profiles: ["tools"]' in PROD or "profiles: [\"tools\"]" in PROD
     assert "src.ingest" in PROD
@@ -26,7 +27,8 @@ def test_production_compose_is_pull_only() -> None:
 
 
 def test_dev_override_builds_and_publishes_localhost_ports() -> None:
-    assert DEV.count("build:") == 4
+    assert DEV.count("build:") == 5
+    assert "minio/minio" in DEV or "minio:" in DEV
     assert "127.0.0.1:8080:8080" in DEV
     assert "127.0.0.1:8000:8000" in DEV
     assert "DEV_PROXY_API: \"1\"" in DEV
