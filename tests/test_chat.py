@@ -40,7 +40,7 @@ class _Usage:
 
 
 class FakeCompletions:
-    def __init__(self, reply: str = "I work at Mindsize.") -> None:
+    def __init__(self, reply: str = "I coach product teams.") -> None:
         self.reply = reply
         self.last_messages: list[dict[str, str]] | None = None
         self.calls = 0
@@ -78,12 +78,12 @@ class FakeCompletions:
 
 
 class FakeChat:
-    def __init__(self, reply: str = "I work at Mindsize.") -> None:
+    def __init__(self, reply: str = "I coach product teams.") -> None:
         self.completions = FakeCompletions(reply)
 
 
 class FakeClient:
-    def __init__(self, reply: str = "I work at Mindsize.") -> None:
+    def __init__(self, reply: str = "I coach product teams.") -> None:
         self.chat = FakeChat(reply)
 
 
@@ -179,9 +179,9 @@ def test_min_score_filters_chunks_no_sources() -> None:
     def fake_retrieve(query: str, **kwargs: Any) -> list[RetrievedChunk]:
         return [_chunk("low", "irrelevant", 0.2)]
 
-    client = FakeClient("I led engineering at Mindsize.")
+    client = FakeClient("I coach product teams.")
     reply_answer = answer_turn(
-        "What did you do at Mindsize?",
+        "What kind of work do you do?",
         [],
         _settings(RETRIEVAL_MIN_SCORE="0.5"),
         clients=client,
@@ -192,7 +192,7 @@ def test_min_score_filters_chunks_no_sources() -> None:
     reply = reply_answer.text
     sources = reply_answer.sources_block
     assert sources == ""
-    assert "Mindsize" in reply
+    assert "coach" in reply
     user_content = client.chat.completions.last_messages[-1]["content"]
     assert "No matching entries were found" in user_content
 
@@ -229,17 +229,24 @@ class _ScriptedClient:
         self.chat.completions = _ScriptedCompletions(replies)
 
 
-def test_prune_drops_the_invented_sentence_without_a_retry() -> None:
-    if not Path("content/about-ben.md").is_file():
-        pytest.skip("content/about-ben.md not present")
+def test_prune_drops_the_invented_sentence_without_a_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    about = tmp_path / "about.md"
+    about.write_text(
+        "I coach product teams at Northwind Studio.\n\n"
+        "I write short playbooks for backlog hygiene.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("src.pipeline.ABOUT_PATH", about)
     draft = (
-        "I was Director of Engineering at Mindsize from June 2019 to September 2026. "
-        "I've got a sweet spot for my bees. "
-        "My team at Mindsize spanned the USA, Canada, and the Philippines."
+        "I coach product teams at Northwind Studio. "
+        "I've got a sweet spot for tidy backlogs. "
+        "I write short playbooks for backlog hygiene."
     )
     client = _ScriptedClient([draft])
     answer = answer_turn(
-        "What did you do at Mindsize?",
+        "What kind of work do you do?",
         [],
         _settings(RETRIEVAL_SOURCES="none"),
         clients=client,
@@ -247,40 +254,47 @@ def test_prune_drops_the_invented_sentence_without_a_retry() -> None:
     assert client.chat.completions.calls == 1
     assert answer.debug["repair"] == "prune"
     assert "sweet spot" not in answer.text
-    assert "Director of Engineering" in answer.text
-    assert "Philippines" in answer.text
-    assert answer.text.startswith("I was Director")
+    assert "Northwind Studio" in answer.text
+    assert "playbooks" in answer.text
+    assert answer.text.startswith("I coach product teams")
     assert any("sweet spot" in sentence for sentence in answer.debug["removed_sentences"])
 
 
-def test_short_prune_retries_once_then_can_fall_back() -> None:
-    if not Path("content/about-ben.md").is_file():
-        pytest.skip("content/about-ben.md not present")
-    bad = "I've got a sweet spot for my bees."
+def test_short_prune_retries_once_then_can_fall_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    about = tmp_path / "about.md"
+    about.write_text(
+        "I coach product teams at Northwind Studio.\n\n"
+        "I write short playbooks for backlog hygiene.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("src.pipeline.ABOUT_PATH", about)
+    bad = "I've got a sweet spot for tidy backlogs."
     kept = (
-        "I was Director of Engineering at Mindsize from June 2019 to September 2026. "
-        "My team at Mindsize spanned the USA, Canada, and the Philippines."
+        "I coach product teams at Northwind Studio. "
+        "I write short playbooks for backlog hygiene."
     )
     client = _ScriptedClient([bad, kept])
     answer = answer_turn(
-        "What did you do at Mindsize?",
+        "What kind of work do you do?",
         [],
         _settings(RETRIEVAL_SOURCES="none"),
         clients=client,
     )
     assert client.chat.completions.calls == 2
     assert answer.debug["repair"] == "retry"
-    assert "Philippines" in answer.text
+    assert "playbooks" in answer.text
     note = client.chat.completions.messages[1][-1]["content"]
     assert "Keep every supported sentence unchanged." in note
 
     falling = _ScriptedClient([bad, bad])
 
     def fake_retrieve(query: str, **kwargs: Any) -> list[RetrievedChunk]:
-        return [_chunk("mindsize", "mindsize-role", 0.9)]
+        return [_chunk("work", "work-role", 0.9)]
 
     answer = answer_turn(
-        "What did you do at Mindsize?",
+        "What kind of work do you do?",
         [],
         _settings(),
         clients=falling,
@@ -289,7 +303,7 @@ def test_short_prune_retries_once_then_can_fall_back() -> None:
     )
     assert falling.chat.completions.calls == 2
     assert answer.debug["repair"] == "fallback"
-    assert answer.text == "Body of mindsize-role"
+    assert answer.text == "Body of work-role"
 
 
 def test_empty_ask_exits_with_code_2(capsys: pytest.CaptureFixture[str]) -> None:

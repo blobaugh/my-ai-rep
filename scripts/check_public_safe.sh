@@ -36,7 +36,7 @@ is_private() {
     .env|.env.*)
       return 0
       ;;
-    content|content/*|data|data/*|.venv|.venv/*|.cursor|.cursor/*)
+    content|content/*|data|data/*|.venv|.venv/*)
       return 0
       ;;
     prompts/voice_samples.md|tests/fixtures/qa_answers.json)

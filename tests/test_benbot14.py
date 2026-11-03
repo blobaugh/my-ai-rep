@@ -27,12 +27,12 @@ FOLLOWUPS = (
     "like what",
     "for example",
     "really",
-    "and the bees",
+    "and the notes",
     "but why",
-    "also the kids",
+    "also the docs",
     "so what happened",
     "then what",
-    "what about sailing",
+    "what about coaching",
     "how about that",
     "why",
     "how so",
@@ -43,31 +43,31 @@ FOLLOWUPS = (
     "and how did that go",
 )
 STANDALONE = (
-    "Do you sail?",
+    "Do you coach?",
     "What do you do at work?",
     "Who is Ben?",
-    "Tell me about Uganda",
-    "Are you married?",
+    "Tell me about your toolkit",
+    "Do you work remotely?",
     "What's your background?",
     "What are you like to work for?",
-    "How did you get into sailing?",
-    "Do you have kids?",
-    "What certifications do you have?",
-    "Tell me about your family",
-    "Do you play any instruments?",
-    "Do you keep fish?",
+    "How did you start coaching?",
+    "Do you write playbooks?",
+    "What tools do you keep nearby?",
+    "Tell me about your week",
+    "Do you use SQLite?",
+    "Do you use TypeScript?",
     "What's your leadership style?",
     "What do you do for fun?",
-    "Where did you work before Mindsize?",
+    "Where do you coach?",
     "Can you lead without being the expert?",
     "How do you run one-on-ones?",
     "What is BenBot?",
     "Have you written a book?",
     "What kind of role do you want?",
     "How is coaching different from mentoring?",
-    "Do you race sailboats?",
-    "What happened when AI credits ran out?",
-    "Tell me about sailing",
+    "Do you facilitate retros?",
+    "What happened when the notes ran out?",
+    "Tell me about coaching",
 )
 
 
@@ -82,7 +82,7 @@ def test_followup_labels_match_the_rule() -> None:
 
 def test_auto_query_keeps_a_new_question_and_joins_a_followup() -> None:
     history = [
-        {"role": "user", "content": "Tell me about sailing"},
+        {"role": "user", "content": "Tell me about coaching"},
         {"role": "assistant", "content": "I sail."},
     ]
     alone = compose_retrieval_query(
@@ -92,11 +92,11 @@ def test_auto_query_keeps_a_new_question_and_joins_a_followup() -> None:
     joined = compose_retrieval_query(
         history, "say more about that", query_turns=1, mode="auto"
     )
-    assert joined == "Tell me about sailing\nsay more about that"
+    assert joined == "Tell me about coaching\nsay more about that"
     turns = compose_retrieval_query(
         history, "What do you do at work?", query_turns=2, mode="turns"
     )
-    assert "Tell me about sailing" in turns
+    assert "Tell me about coaching" in turns
     assert "What do you do at work?" in turns
 
 
@@ -254,7 +254,7 @@ def _chunk(entry_id: str, body: str, source: str) -> object:
 def test_knowledge_text_matches_full_and_summary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     about = tmp_path / "about.md"
     about.write_text(
-        "# About\n\nOpening paragraph about Ben.\n\n## Work\n- Secret Mindsize bullet.\n",
+        "# About\n\nOpening paragraph about Ben.\n\n## Work\n- Secret studio bullet.\n",
         encoding="utf-8",
     )
     monkeypatch.setattr("src.pipeline.ABOUT_PATH", about)
@@ -262,13 +262,13 @@ def test_knowledge_text_matches_full_and_summary(tmp_path: Path, monkeypatch: py
 
     def retrieve(query: str, **kwargs: object) -> list:
         return [
-            _chunk("facts#uganda", "I've gone on five trips with Freedom Projectz Uganda.", "facts"),
+            _chunk("facts#retreats", "I've run four coaching retreats with small teams.", "facts"),
             _chunk("qa#intro", "I am a leadership consultant.", "qa"),
         ]
 
     _COMPLETION_CALLS.clear()
     summary = answer_turn(
-        "Tell me about Uganda",
+        "Tell me about retreats",
         [],
         load_settings(environ={"FACTS_IN_PROMPT": "summary", "RETRIEVAL_SOURCES": "qa,facts"}),
         clients=_Client(),
@@ -277,16 +277,16 @@ def test_knowledge_text_matches_full_and_summary(tmp_path: Path, monkeypatch: py
     )
     knowledge = summary.debug["knowledge_text"]
     assert "Opening paragraph about Ben." in knowledge
-    assert "Secret Mindsize bullet." not in knowledge
-    assert "five trips" in knowledge
+    assert "Secret studio bullet." not in knowledge
+    assert "four coaching retreats" in knowledge
     assert "leadership consultant" in knowledge
     summary_system = str(_COMPLETION_CALLS[0][0]["content"])  # type: ignore[index]
     assert "Opening paragraph about Ben." in summary_system
-    assert "Secret Mindsize bullet." not in summary_system
+    assert "Secret studio bullet." not in summary_system
 
     _COMPLETION_CALLS.clear()
     full = answer_turn(
-        "Tell me about Uganda",
+        "Tell me about retreats",
         [],
         load_settings(environ={"FACTS_IN_PROMPT": "full", "RETRIEVAL_SOURCES": "qa,facts"}),
         clients=_Client(),
@@ -294,9 +294,9 @@ def test_knowledge_text_matches_full_and_summary(tmp_path: Path, monkeypatch: py
         today=__import__("datetime").date(2026, 10, 22),
     )
     full_knowledge = full.debug["knowledge_text"]
-    assert "Secret Mindsize bullet." in full_knowledge
-    assert "five trips" in full_knowledge
+    assert "Secret studio bullet." in full_knowledge
+    assert "four coaching retreats" in full_knowledge
     full_system = str(_COMPLETION_CALLS[0][0]["content"])  # type: ignore[index]
-    assert "Secret Mindsize bullet." in full_system
+    assert "Secret studio bullet." in full_system
     assert "Opening paragraph" in facts_for_prompt(about.read_text(), "summary")
     assert "Secret" not in facts_for_prompt(about.read_text(), "summary")

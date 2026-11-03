@@ -20,15 +20,10 @@ from src.vector_store import NumpyVectorStore
 CASES_PATH = Path("eval/qa_retrieval_cases.json")
 RESULTS_DIR = Path("data/eval")
 REPORT_QUESTIONS = (
-    "What are you like to work for?",
-    "What is your leadership style?",
-    "Who is Ben?",
-    "What's your background?",
-    "Are you married?",
-    "Tell me about Uganda",
-    "Do you play any instruments?",
-    "Do you keep fish?",
-    "Tell me about your family",
+    "Who are you?",
+    "What kind of work do you do?",
+    "What technologies do you use?",
+    "Do you work remotely?",
 )
 
 

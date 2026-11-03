@@ -1,0 +1,114 @@
+---
+description: Scope FeedPebble MCP operations to the default org → BenBot project; tracked-issue workflow with markdown descriptions.
+alwaysApply: true
+---
+
+# FeedPebble project scope
+
+For any FeedPebble MCP action (`FeedPebble` tools) in this repository.
+
+## Default resolution: default org → default project
+
+FeedPebble is org-scoped (`/{org}/{project}`). Projects belong to an
+**organization**, and project slugs are unique **per-org** (DF-45), so a bare
+slug can be ambiguous across orgs. Resolution is therefore two levels:
+
+- **Default org → the PAT's organization.** Every MCP request authenticates with
+  a personal access token (`fpat_…`) that is **scoped to exactly one org** (DF-50).
+  The API confines all MCP operations to that org and **denies cross-org access**.
+  You do not pick the org — the token does.
+- **Default project → `BenBot`** (slug: `benbot`, issue prefix: `BENBOT`), which
+  lives under the default org. Resolve its ULID at runtime via
+  `get_project { slug: "benbot" }` — do not hard-code it, the id can
+  change across dev DB resets.
+
+Because the PAT already pins the org, a bare `slug: "benbot"` resolves
+unambiguously **within the token's org** — you normally do **not** need to pass
+an org slug. Supply one only to be explicit or when a tool spans orgs.
+
+### Threading an org slug (`/{org}/{project}`)
+
+Project-targeting tools accept an optional **`orgSlug`** to disambiguate a slug
+under `/{org}/{project}` (forwarded to the SDK's `getByOrgAndSlug`, DF-46):
+
+- `get_project { slug, orgSlug }` — resolve a project by `(org, slug)`.
+- `list_projects { orgSlug }` — list a specific org's projects
+  (omit `orgSlug` to list within the PAT's org).
+- `create_project { …, orgSlug }` — create in that org (orgSlug required).
+- Issue tools that resolve by `projectSlug` (`get_issue`, `get_issue_context`,
+  `update_issue`, `delete_issue`, `list_issue_comments`, `add_issue_comment`,
+  `link_feedback_to_issue`) accept `orgSlug` alongside `projectSlug`.
+  `relate_issues` / `unrelate_issues` accept `sourceOrgSlug` / `targetOrgSlug`.
+
+An `orgSlug` outside the PAT's org is rejected by the API — this is the intended
+cross-org isolation, not a bug to work around.
+
+## Project selection
+
+- If the user does **not** name a project, assume `BenBot`:
+  - "Create an issue for X" → create in `BenBot`.
+  - "Work on the auth issue" / "look at `BENBOT-7`" → fetch from `BenBot`. Prefer the issue key (`BENBOT-7`) over the ULID when humans are reading.
+  - "What's open?" / "list issues" → list against `BenBot`.
+- If the user explicitly names another project, operate against that one and do
+  **not** touch `BenBot`. If that project lives in a different org than the one
+  your PAT is scoped to, the call will be denied — surface that rather than guessing.
+- If a request is ambiguous about which project, confirm before creating or mutating anything.
+- Never delete or bulk-mutate projects/issues without an explicit instruction naming the target.
+
+## Project briefing
+
+Before proposing or investigating a feature, call `list_project_context` for
+`BenBot` and read the briefing (pinned entries and recent unpinned entries).
+That brief is **not** included in `get_issue` / `get_issue_context`.
+
+## Tracked-issue workflow
+
+When work maps to a FeedPebble issue in `BenBot`:
+
+1. Call `get_issue_context` (accepts either `issueId` ULID or
+   `{ issueKey: "BENBOT-7", projectSlug: "benbot" }`) and restate scope before
+   changing code. Also call `list_project_context` for the standing brief.
+2. Set the issue to `in_progress` (`update_issue`) when you start work.
+3. Implement.
+4. On completion, post a work-log comment and set `status: ready_for_qa`. Set
+   `status: done` only **after the user explicitly confirms**.
+
+Keep feature-specific notes on the issue. Create a project context entry only
+for a conclusion that should affect later sessions. Never pin. To correct a
+pinned entry, create an unpinned successor with `supersedesId`.
+
+## Issue descriptions — markdown
+
+All issue descriptions use GitHub-flavored markdown. Use this template for new issues unless the user specifies otherwise:
+
+```md
+## Summary
+<What problem are we solving and for whom?>
+
+## Background / Context
+<Relevant technical context, links, constraints>
+
+## Scope
+### In scope
+- ...
+### Out of scope
+- ...
+
+## Proposed Work
+- ...
+
+## Acceptance Criteria
+- [ ] ...
+
+## Validation / Test Plan
+- [ ] ...
+
+## Dependencies / Blockers
+- Depends on: <issue key or none>
+- Blocked by: <issue key or none>
+
+## Notes
+<optional>
+```
+
+Keep titles concise and outcome-specific. Default new issues to `status: open` and pick a `priority` (`low`/`medium`/`high`/`urgent`) — don't leave priority ambiguous on non-trivial work.

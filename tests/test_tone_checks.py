@@ -70,7 +70,7 @@ def test_load_tone_cases_json() -> None:
     assert len(cases) == 8
     by_id = {c["id"]: c for c in cases}
     assert by_id["tone-ideal-role"]["allowed_topics"] == []
-    assert "sailing" in by_id["tone-for-fun"]["allowed_topics"]
+    assert "coaching" in by_id["tone-for-fun"]["allowed_topics"]
     assert by_id["tone-for-fun"]["expect_mentions_any"]
-    assert by_id["tone-sailing-start"]["expect_mentions_any"]
+    assert by_id["tone-tools"]["expect_mentions_any"]
     assert by_id["tone-work-for-gap"]["question"] == "What are you like to work for?"

@@ -6,16 +6,16 @@ from src.faithfulness import check_faithfulness, recitation_score
 
 
 def test_unsupported_number_flagged() -> None:
-    grounding = "I grew the team from 2 to 15 engineers."
-    result = check_faithfulness("I grew the team to 99 engineers.", grounding)
+    grounding = "I grew the practice from 2 to 8 coaches."
+    result = check_faithfulness("I grew the practice to 99 coaches.", grounding)
     texts = {t.text for t in result.unsupported}
     assert "99" in texts
 
 
 def test_supported_number_and_spelled_out_pass() -> None:
-    grounding = "I grew the team from 2 to 15. Retention went from one year to five."
+    grounding = "I grew the practice from 2 to 8. The notes went from one page to five."
     result = check_faithfulness(
-        "I grew the team to 15 and retention to five years.",
+        "I grew the practice to 8 and the notes to five pages.",
         grounding,
     )
     assert result.unsupported == []
@@ -34,7 +34,7 @@ def test_sentence_initial_capital_not_flagged() -> None:
 
 
 def test_invented_name_flagged() -> None:
-    grounding = "I worked at Mindsize as Director of Engineering."
+    grounding = "I worked at Northwind Studio as a product coach."
     result = check_faithfulness(
         "I worked at AcmeCorp with Jane Doe on projects.",
         grounding,
@@ -46,7 +46,7 @@ def test_invented_name_flagged() -> None:
 def test_recitation_unrelated_is_zero() -> None:
     score = recitation_score(
         "The quick brown fox jumps over the lazy dog today.",
-        "Completely different source material about sailing boats.",
+        "Completely different source material about written playbooks.",
     )
     assert score == 0.0
 

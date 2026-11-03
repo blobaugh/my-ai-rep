@@ -24,10 +24,4 @@ __pycache__/
 # Biography quotes. Not the system prompt.
 prompts/voice_samples.md
 
-# Real Q&A answers copied into a fixture. Needs a decision before publishing.
-tests/fixtures/qa_answers.json
-
-# Local editor and agent state. Needs a decision before publishing.
-.cursor/
-
 .DS_Store

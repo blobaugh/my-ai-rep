@@ -27,8 +27,9 @@ from src.guards import GUARD_REDIRECT, IDENTITY_REPLY, MISSING_DETAIL
 # Recalibrated in BENBOT-15 on the passages in tests/test_verify.py.
 # Windowed good sentences score at least 0.875. Invented sentences the word
 # list does not already catch score at most 0.50 ("recently started keeping
-# bees", "AI-first as a mindset"). 0.55 sits in that gap. The merged Mindsize
-# sentence scores 0.421 against one knowledge sentence and 0.947 in a window.
+# bees", "AI-first as a mindset"). 0.55 sits in that gap. A sentence merged
+# from several knowledge sentences can score under the threshold in one
+# window and above it when neighboring sentences are visible.
 SUPPORT_THRESHOLD = 0.55
 
 # Separates facts-file text from each retrieved or stuffed entry.
