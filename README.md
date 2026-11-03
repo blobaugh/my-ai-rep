@@ -19,8 +19,10 @@ pip install -e ".[dev]"
 ## Knowledge
 
 ```bash
-python -m src.qa                  # → data/chunks/qa_chunks.jsonl and facts_chunks.jsonl
-python -m src.index_chunks        # → data/index/{vectors.npy,index.json}
+python -m src.ingest              # validate content, embed, swap data/index safely
+python -m src.ingest --check      # parse only
+python -m src.ingest --rebuild    # full re-embed (model or prefix change)
+python -m src.index_chunks        # low-level index from data/chunks/knowledge.jsonl
 python -m src.retrieve "What does AI-first mean to you?"
 python -m eval.run_retrieval_eval
 python -m eval.run_qa_retrieval_eval

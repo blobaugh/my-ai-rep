@@ -17,13 +17,16 @@ def test_production_compose_is_pull_only() -> None:
     assert "container_name: benbot_api" in PROD
     assert "container_name: benbot_web" in PROD
     assert "container_name: benbot_embedder" in PROD
+    assert "profiles:" in PROD
+    assert 'profiles: ["tools"]' in PROD or "profiles: [\"tools\"]" in PROD
+    assert "src.ingest" in PROD
     assert "platform: linux/amd64" in PROD
     assert "internal: true" in PROD
     assert "DEV_PROXY_API: \"0\"" in PROD
 
 
 def test_dev_override_builds_and_publishes_localhost_ports() -> None:
-    assert DEV.count("build:") == 3
+    assert DEV.count("build:") == 4
     assert "127.0.0.1:8080:8080" in DEV
     assert "127.0.0.1:8000:8000" in DEV
     assert "DEV_PROXY_API: \"1\"" in DEV

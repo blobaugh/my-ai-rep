@@ -43,6 +43,19 @@ services:
     environment:
       EMBED_MODEL: nomic-embed-text
 
+  ingest:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    image: benbot/api:dev
+    platform: linux/arm64
+    volumes:
+      - ${BENBOT_HOME:-.}/data:/app/data
+      - ${BENBOT_HOME:-.}/examples:/content:ro
+    environment:
+      CONTENT_DIR: /content
+      EMBED_BASE_URL: http://embedder:11434/v1
+
 networks:
   proxy:
     external: false

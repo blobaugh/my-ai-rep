@@ -11,7 +11,20 @@ import json
 import re
 from pathlib import Path
 
-from src.qa import content_hash, entry_to_chunk, parse_qa
+from src.qa import QAParseError, content_hash, entry_to_chunk, parse_qa
+
+
+class ContentValidationError(ValueError):
+    """A content file failed validation before ingest."""
+
+    def __init__(self, path: Path, message: str, line: int | None = None) -> None:
+        self.path = path
+        self.message = message
+        self.line = line
+        if line is not None:
+            super().__init__(f"{path}: line {line}: {message}")
+        else:
+            super().__init__(f"{path}: {message}")
 
 KNOWLEDGE_CHUNKS_PATH = Path("data/chunks/knowledge.jsonl")
 _ABOUT_NAMES = frozenset({"about.md", "about.example.md"})
@@ -117,6 +130,23 @@ def chunks_for_file(path: Path, root: Path, *, embed_mode: str) -> list[dict]:
             chunks.append(chunk)
         return chunks
     return chunk_prose(path, root, text)
+
+
+def validate_content(root: Path) -> None:
+    """Parse every searchable markdown file. Raises on the first error."""
+    if not root.is_dir():
+        raise ContentValidationError(root, "content directory not found")
+    for path in content_markdown_files(root):
+        text = path.read_text(encoding="utf-8")
+        if not looks_like_qa(text):
+            continue
+        try:
+            parse_qa(text)
+        except QAParseError as exc:
+            detail = str(exc)
+            if exc.line is not None and detail.startswith(f"line {exc.line}: "):
+                detail = detail[len(f"line {exc.line}: ") :]
+            raise ContentValidationError(path, detail, exc.line) from exc
 
 
 def build_content_chunks(root: Path, *, embed_mode: str) -> list[dict]:

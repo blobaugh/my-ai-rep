@@ -240,6 +240,7 @@ def build_or_update_index(
     chunks_path: Path | None = None,
     chunks_dir: Path = CHUNKS_DIR,
     index_dir: Path = INDEX_DIR,
+    existing_index_dir: Path | None = None,
     config: EmbedConfig | None = None,
     rebuild: bool = False,
     embed_fn: Callable[..., tuple[list[list[float]], list[bool]]] | None = None,
@@ -265,9 +266,12 @@ def build_or_update_index(
     text_mode = "question_and_answer" if mode == "multi" else mode
     chunks = apply_qa_embed_mode(chunks, text_mode)
 
+    source_index_dir = (
+        existing_index_dir if existing_index_dir is not None else index_dir
+    )
     existing: VectorStore | None = None
-    if not rebuild and (index_dir / "index.json").is_file():
-        existing = NumpyVectorStore.load(index_dir)
+    if not rebuild and (source_index_dir / "index.json").is_file():
+        existing = NumpyVectorStore.load(source_index_dir)
         check_compatible(existing.meta, cfg)
         stored = stored_vector_mode(existing.meta)
         if stored != desired_vector_mode:

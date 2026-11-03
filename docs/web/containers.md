@@ -93,4 +93,18 @@ Render nginx config for inspection:
 PYTHONPATH=. python web/dev/render_nginx.py
 ```
 
-Ingest and backup services are added in BENBOT-25 and BENBOT-26.
+## Ingest (tools profile)
+
+| Service | Image | Networks | Command |
+|---|---|---|---|
+| ingest | same as api | internal | `python -m src.ingest` |
+
+Not started by `docker compose up`. Run:
+
+```bash
+docker compose --profile tools run --rm ingest
+```
+
+Dev merge mounts `examples/` at `/content`. See `docs/deploy/content.md`.
+
+Backup service is added in BENBOT-26.

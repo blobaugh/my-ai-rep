@@ -64,6 +64,31 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  ingest:
+    profiles: ["tools"]
+    image: ${BENBOT_IMAGE_PREFIX:-benbot}/api:${BENBOT_TAG:-latest}
+    platform: linux/amd64
+    env_file: .env
+    environment:
+      CONTENT_DIR: /content
+      EMBED_BASE_URL: http://embedder:11434/v1
+    volumes:
+      - ${BENBOT_HOME:-.}/data:/app/data
+      - ${BENBOT_HOME:-.}/content:/content:ro
+    networks:
+      - internal
+    depends_on:
+      embedder:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    command: ["python", "-m", "src.ingest"]
+
   embedder:
     container_name: benbot_embedder
     image: ${BENBOT_IMAGE_PREFIX:-benbot}/embedder:${BENBOT_TAG:-latest}
