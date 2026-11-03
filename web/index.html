@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chat</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page">
+  <header class="top">
+    <p id="ai-label" class="ai-label">Loading…</p>
+  </header>
+  <main class="chat">
+    <p id="logging-notice" class="notice"></p>
+    <div id="messages" class="messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+    <form id="composer" class="composer">
+      <label class="visually-hidden" for="message">Message</label>
+      <textarea id="message" name="message" rows="2"></textarea>
+      <button id="send" type="submit">Send</button>
+    </form>
+    <p id="status" class="status" role="status"></p>
+  </main>
+  <footer class="about">
+    <button id="new-chat" type="button">New chat</button>
+    <details>
+      <summary>About this chat</summary>
+      <p>To ask Ben to remove a conversation, send him this session id.</p>
+      <p class="session-row">
+        <span class="visually-hidden">Session id</span>
+        <code id="session-id">none yet</code>
+        <button id="copy-id" type="button">Copy</button>
+      </p>
+      <p id="contact-row" hidden>
+        <a id="contact-link" href="https://example.com/">Contact</a>
+      </p>
+    </details>
+  </footer>
+  <script type="module" src="chat.js"></script>
+</body>
+</html>

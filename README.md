@@ -102,6 +102,14 @@ The cap counts visitor messages that were accepted for an answer. Deleting a ses
 
 The HTTP API is `python -m src.api` (one worker, routes under `/api`). See `docs/web/api.md`.
 
+The chat page is static files in `web/`. For UI work without a model:
+
+```bash
+python web/dev/mock_api.py
+```
+
+Open `http://127.0.0.1:8765/` and `http://127.0.0.1:8765/embed`. Magic messages such as `!full` and `!down` show the error states. See `docs/decisions/020-plain-chat-ui.md`.
+
 ## Tests
 
 ```bash
