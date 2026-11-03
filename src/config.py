@@ -84,6 +84,12 @@ class Settings:
     db_path: str = "data/benbot.sqlite"
     session_idle_minutes: int = 60
     session_max_messages: int = 50
+    message_max_chars: int = 1000
+    cors_allowed_origins: tuple[str, ...] = ()
+    contact_url: str = ""
+    ai_label: str = ""
+    opening_message: str = ""
+    logging_notice: str = ""
 
     def to_embed_config(self) -> EmbedConfig:
         return EmbedConfig(
@@ -155,6 +161,12 @@ class Settings:
             "DB_PATH": self.db_path,
             "SESSION_IDLE_MINUTES": self.session_idle_minutes,
             "SESSION_MAX_MESSAGES": self.session_max_messages,
+            "MESSAGE_MAX_CHARS": self.message_max_chars,
+            "CORS_ALLOWED_ORIGINS": ",".join(self.cors_allowed_origins) or "unset",
+            "CONTACT_URL": self.contact_url or "unset",
+            "AI_LABEL": self.ai_label or "unset",
+            "OPENING_MESSAGE": self.opening_message or "unset",
+            "LOGGING_NOTICE": self.logging_notice or "unset",
             "BOT_NAME": self.bot_name,
             "HUMAN_NAME": self.human_name,
             "TOPIC_LEAK_WORDS": ",".join(self.topic_leak_words),
@@ -382,6 +394,12 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
         db_path=_str(data, "DB_PATH", "data/benbot.sqlite"),
         session_idle_minutes=_int(data, "SESSION_IDLE_MINUTES", 60, minimum=0),
         session_max_messages=_int(data, "SESSION_MAX_MESSAGES", 50, minimum=1),
+        message_max_chars=_int(data, "MESSAGE_MAX_CHARS", 1000, minimum=1),
+        cors_allowed_origins=_origins(data),
+        contact_url=_str(data, "CONTACT_URL", ""),
+        ai_label=_str(data, "AI_LABEL", ""),
+        opening_message=_str(data, "OPENING_MESSAGE", ""),
+        logging_notice=_str(data, "LOGGING_NOTICE", ""),
     )
 
 
@@ -389,6 +407,26 @@ def _str(data: Mapping[str, str], name: str, default: str) -> str:
     if name not in data or str(data[name]).strip() == "":
         return default
     return str(data[name]).strip()
+
+
+def _origins(data: Mapping[str, str]) -> tuple[str, ...]:
+    """Comma-separated browser origins. Blank means CORS stays off. Never '*'."""
+    name = "CORS_ALLOWED_ORIGINS"
+    if name not in data or str(data[name]).strip() == "":
+        return ()
+    found: list[str] = []
+    seen: set[str] = set()
+    for part in str(data[name]).split(","):
+        origin = part.strip()
+        if not origin or origin in seen:
+            continue
+        if origin == "*":
+            raise ValueError(f"{name} must list origins and must not be '*'")
+        if "://" not in origin:
+            raise ValueError(f"{name} must be an origin like https://example.com, got {origin!r}")
+        seen.add(origin)
+        found.append(origin)
+    return tuple(found)
 
 
 def _word_list(data: Mapping[str, str], name: str) -> tuple[str, ...]:

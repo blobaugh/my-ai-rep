@@ -181,7 +181,19 @@ class Store:
             return SessionResolution(state="full", session_id=str(row["id"]))
         return SessionResolution(state="ok", session_id=str(row["id"]))
 
-    def begin_turn(self, session_id: str, visitor_message: str) -> TurnRecord:
+    def message_count(self, session_id: str) -> int:
+        row = self._session_row(session_id)
+        if row is None:
+            return 0
+        return int(row["message_count"])
+
+    def begin_turn(
+        self,
+        session_id: str,
+        visitor_message: str,
+        *,
+        full_reply: str = "",
+    ) -> TurnRecord:
         """Insert one turn and commit. Does not call the model.
 
         A new id creates the session. At the cap the turn is stored as
@@ -207,10 +219,12 @@ class Store:
                 )
                 status = "pending"
                 finished: str | None = None
+                reply = ""
             elif int(session["message_count"]) >= self.max_messages:
                 sequence = _next_sequence(conn, session_id)
                 status = "session_full"
                 finished = created
+                reply = full_reply
                 conn.execute(
                     "UPDATE sessions SET last_active_at = ? WHERE id = ?",
                     (created, session_id),
@@ -219,6 +233,7 @@ class Store:
                 sequence = _next_sequence(conn, session_id)
                 status = "pending"
                 finished = None
+                reply = ""
                 conn.execute(
                     """
                     UPDATE sessions
@@ -232,9 +247,9 @@ class Store:
                 INSERT INTO turns (
                     session_id, sequence, created_at, finished_at,
                     visitor_message, reply, status
-                ) VALUES (?, ?, ?, ?, ?, '', ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (session_id, sequence, created, finished, visitor_message, status),
+                (session_id, sequence, created, finished, visitor_message, reply, status),
             )
         stored = self.get_turn(session_id, sequence)
         if stored is None:

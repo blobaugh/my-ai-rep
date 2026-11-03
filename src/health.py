@@ -396,3 +396,52 @@ def _read(path: Path) -> str | None:
 
 def _temp(value: float) -> str:
     return format(value, "g")
+
+
+def main() -> int:
+    """Detailed report for use inside the container. Not the public health URL."""
+    from src.config import format_settings, load_settings
+    from src.llm_pool import pool_for
+    from src.store import Store
+
+    try:
+        settings = load_settings()
+    except ValueError as exc:
+        print(f"error: {exc}")
+        return 1
+    print(format_settings(settings))
+    try:
+        Store(
+            settings.db_path,
+            idle_minutes=settings.session_idle_minutes,
+            max_messages=settings.session_max_messages,
+        )
+        print("database: ok")
+    except Exception as exc:  # noqa: BLE001
+        print(f"database: error {type(exc).__name__}")
+    summary, _mtime = _read_index_summary()
+    if summary is None:
+        print("index_entries=missing embed_model=missing")
+    else:
+        print(
+            f"index_entries={summary['entry_count']} "
+            f"embed_model={summary['embed_model']}"
+        )
+    root = Path(settings.content_dir)
+    for name in ("about.md", "qa.md"):
+        state = "present" if (root / name).is_file() else "missing"
+        print(f"content {name}: {state}")
+    report = run_health_checks(settings)
+    print(report.ready_line)
+    for warning in report.warnings:
+        print(warning)
+    for error in report.errors:
+        print(error)
+    pool = pool_for(settings)
+    active = "true" if pool.failover_active else "false"
+    print(f"failover_active={active}")
+    return 1 if report.errors else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

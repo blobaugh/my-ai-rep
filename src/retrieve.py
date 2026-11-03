@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import threading
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -12,9 +13,39 @@ from typing import Any, Callable
 
 from src.config import load_embed_config, load_settings
 from src.embeddings import EmbedConfig, embed_texts
-from src.vector_store import NumpyVectorStore, SearchHit, VectorStore
+from src.vector_store import (
+    INDEX_FILENAME,
+    VECTORS_FILENAME,
+    NumpyVectorStore,
+    SearchHit,
+    VectorStore,
+)
 
 INDEX_DIR = Path("data/index")
+_index_lock = threading.Lock()
+_index_cache: tuple[Path, tuple[int, int], NumpyVectorStore] | None = None
+
+
+def load_index(directory: Path = INDEX_DIR) -> NumpyVectorStore:
+    """Load the index, reusing it until index.json or vectors.npy changes.
+
+    The check is the two modification times. A manual rebuild is visible on
+    the next call. There is no process-wide copy that ignores a new file.
+    """
+    global _index_cache
+    directory = directory.resolve()
+    index_path = directory / INDEX_FILENAME
+    vectors_path = directory / VECTORS_FILENAME
+    if not index_path.is_file() or not vectors_path.is_file():
+        raise FileNotFoundError(f"No vector index in {directory}")
+    stamp = (index_path.stat().st_mtime_ns, vectors_path.stat().st_mtime_ns)
+    with _index_lock:
+        cached = _index_cache
+        if cached is not None and cached[0] == directory and cached[1] == stamp:
+            return cached[2]
+        loaded = NumpyVectorStore.load(directory)
+        _index_cache = (directory, stamp, loaded)
+        return loaded
 
 
 @dataclass(frozen=True)
@@ -147,7 +178,7 @@ def retrieve(
     if k is None:
         k = load_settings().retrieval_k
     cfg = config or load_embed_config()
-    vector_store = store or NumpyVectorStore.load(index_dir)
+    vector_store = store or load_index(index_dir)
     embed = embed_fn or embed_texts
 
     vectors, _ = embed([question], config=cfg, kind="query")
@@ -176,9 +207,7 @@ def retrieve_timed(
 ) -> tuple[list[RetrievedChunk], float, float]:
     """Like retrieve(), also returning (embed_seconds, search_seconds)."""
     cfg = kwargs.pop("config", None) or load_embed_config()
-    store = kwargs.pop("store", None) or NumpyVectorStore.load(
-        kwargs.get("index_dir", INDEX_DIR)
-    )
+    store = kwargs.pop("store", None) or load_index(kwargs.get("index_dir", INDEX_DIR))
     embed = kwargs.pop("embed_fn", None) or embed_texts
     kwargs.pop("index_dir", None)
 

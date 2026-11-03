@@ -79,6 +79,11 @@ class LlmPool:
     def secondary_configured(self) -> bool:
         return bool(self.settings.llm_secondary_base_url)
 
+    @property
+    def failover_active(self) -> bool:
+        with self._lock:
+            return self._failover_active
+
     def call(self, attempt: Callable[[Any, str], T]) -> tuple[T, str, bool]:
         """Run attempt(client, model). Return the value, connection name, and failover flag."""
         name, probed = self._choose()
