@@ -42,12 +42,12 @@ Production services set `platform: linux/amd64`. Dev builds use the local archit
 
 | Mount | Service | Mode | Purpose |
 |---|---|---|---|
-| `${BENBOT_HOME}/data` → `/data` | api | read-write | SQLite, NumPy index |
+| `${BENBOT_HOME}/data` → `/app/data` | api | read-write | SQLite, NumPy index |
 | `${BENBOT_HOME}/content` → `/content` | api (prod) | read-only | Private markdown |
 | `${BENBOT_HOME}/examples` → `/content` | api (dev) | read-only | Sample markdown |
 | `ollama_models` | embedder | read-write | Ollama model files |
 
-Inside the api container, `DB_PATH=/data/benbot.sqlite` and `CONTENT_DIR=/content`.
+Inside the api container, `DB_PATH=/app/data/benbot.sqlite` and `CONTENT_DIR=/content`. The app reads the index at `data/index` relative to `/app` (same layout as a host checkout).
 
 ## Environment
 

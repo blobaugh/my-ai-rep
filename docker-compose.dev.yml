@@ -10,13 +10,13 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
-      - ${BENBOT_HOME:-.}/data:/data
+      - ${BENBOT_HOME:-.}/data:/app/data
       - ${BENBOT_HOME:-.}/examples:/content:ro
     environment:
       LLM_BASE_URL: http://host.docker.internal:11434/v1
       EMBED_BASE_URL: http://embedder:11434/v1
       CONTENT_DIR: /content
-      DB_PATH: /data/benbot.sqlite
+      DB_PATH: /app/data/benbot.sqlite
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -40,6 +40,8 @@ services:
       dockerfile: docker/embedder/Dockerfile
     image: benbot/embedder:dev
     platform: linux/arm64
+    environment:
+      EMBED_MODEL: nomic-embed-text
 
 networks:
   proxy:

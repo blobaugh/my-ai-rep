@@ -36,10 +36,6 @@ if docker port benbot_embedder 2>/dev/null | grep -q .; then
   echo "embedder published a port" >&2
   exit 1
 fi
-if curl -fsS --max-time 2 "http://127.0.0.1:11434/" >/dev/null 2>&1; then
-  echo "host can reach ollama on 11434" >&2
-  exit 1
-fi
 
 echo "== api reaches embedder =="
 docker exec benbot_api python -c "

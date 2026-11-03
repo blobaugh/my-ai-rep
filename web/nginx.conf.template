@@ -1,5 +1,4 @@
 # Web container. Render with web/dev/render_nginx.py or docker/web/entrypoint.sh.
-# Placeholders: __FRAME_ANCESTORS__, __API_PROXY_BLOCK__
 server {
     listen 8080;
     server_name _;

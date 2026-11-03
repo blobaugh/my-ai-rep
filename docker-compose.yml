@@ -14,10 +14,10 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: 8000
       CONTENT_DIR: /content
-      DB_PATH: /data/benbot.sqlite
+      DB_PATH: /app/data/benbot.sqlite
       EMBED_BASE_URL: http://embedder:11434/v1
     volumes:
-      - ${BENBOT_HOME:-.}/data:/data
+      - ${BENBOT_HOME:-.}/data:/app/data
       - ${BENBOT_HOME:-.}/content:/content:ro
     networks:
       - proxy
@@ -57,7 +57,7 @@ services:
       - /tmp
       - /var/cache/nginx
       - /var/run
-      - /etc/nginx/conf.d
+      - /etc/nginx/conf.d:uid=101,gid=101,mode=0755
     logging:
       driver: json-file
       options:
@@ -70,6 +70,8 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     env_file: .env
+    environment:
+      EMBED_MODEL: nomic-embed-text
     volumes:
       - ollama_models:/root/.ollama
     networks:
