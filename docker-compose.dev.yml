@@ -57,7 +57,9 @@ services:
       EMBED_BASE_URL: http://embedder:11434/v1
 
   minio:
-    image: quay.io/minio/minio:latest
+    # MinIO CE no longer publishes pullable images on Docker Hub / quay.io (2026).
+    # pgsty/silo is an S3-compatible drop-in for local backup tests.
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     platform: linux/arm64
     command: server /data --console-address ":9001"
     environment:

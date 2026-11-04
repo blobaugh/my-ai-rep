@@ -4,7 +4,7 @@ FROM python:3.9-slim-bookworm
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home --uid 10002 backup
+    && (id -u backup >/dev/null 2>&1 || useradd --create-home --uid 10002 backup)
 
 WORKDIR /app
 

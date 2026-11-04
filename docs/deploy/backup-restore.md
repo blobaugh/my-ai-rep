@@ -87,7 +87,9 @@ it from snapshots already stored in Spaces (see `docs/decisions/018-sqlite-store
 
 ## Local dev (MinIO)
 
-Dev compose adds `minio` and builds `backup` with MinIO credentials. Create the
+Dev compose adds `minio` (S3-compatible **pgsty/silo**; upstream MinIO CE images
+are no longer pullable from Docker Hub / quay.io) and builds `backup` with MinIO
+credentials. Create the
 bucket once:
 
 ```bash
