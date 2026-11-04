@@ -37,7 +37,9 @@ done
 curl -fsS "http://127.0.0.1:8080/api/health" >/dev/null
 
 echo "== e2e: ingest (examples) =="
-"${COMPOSE[@]}" --profile tools run --rm ingest
+# /tmp vs mounted data/ may be different devices in Docker Desktop.
+"${COMPOSE[@]}" exec -T api sh -c 'mkdir -p /app/data/tmp && TMPDIR=/app/data/tmp python -m src.ingest' \
+  || "${COMPOSE[@]}" --profile tools run --rm ingest
 
 echo "== e2e: pytest =="
 set +e
