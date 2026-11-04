@@ -56,9 +56,10 @@ run() {
 
   echo "== e2e: pytest =="
   set +e
-  python -m pytest tests/e2e -m e2e --tb=short -q
+  python -m pytest tests/e2e -m e2e --tb=short -q >"$report_dir/pytest.log" 2>&1
   pytest_status=$?
   set -e
+  cat "$report_dir/pytest.log"
   echo "$pytest_status" >"$status_file"
 
   {

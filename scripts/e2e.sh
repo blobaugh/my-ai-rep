@@ -4,6 +4,10 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 cd "$root"
+if [ -f "$root/.venv/bin/python" ]; then
+  PATH="$root/.venv/bin:$PATH"
+  export PATH
+fi
 export BENBOT_HOME="${BENBOT_HOME:-$root}"
 export RUN_E2E=1
 export E2E_IDLE_WAIT_SEC="${E2E_IDLE_WAIT_SEC:-70}"
@@ -43,9 +47,10 @@ echo "== e2e: ingest (examples) =="
 
 echo "== e2e: pytest =="
 set +e
-python -m pytest tests/e2e -m e2e --tb=short -q 2>&1 | tee "$report_dir/pytest.log"
+python -m pytest tests/e2e -m e2e --tb=short -q >"$report_dir/pytest.log" 2>&1
 pytest_status=$?
 set -e
+cat "$report_dir/pytest.log"
 
 {
   echo "# E2E results ($(date -u +%Y-%m-%dT%H:%MZ))"

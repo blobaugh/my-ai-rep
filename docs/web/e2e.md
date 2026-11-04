@@ -68,5 +68,13 @@ GitLab CI (`scripts/ci/test.sh`) runs unit tests only.
 ## Defects
 
 This suite does **not** change product code. Failures become new FeedPebble issues.
-Compare HTTP vs CLI equivalence failures carefully — both paths must share the
-same `data/` index and model settings.
+**Exit code:** `scripts/e2e.sh` writes pytest output to `data/e2e/pytest.log` and
+uses pytest’s real exit status in `data/e2e/results.md` (not masked by `tee`).
+
+**HTTP vs CLI byte equality:** live Ollama/OpenRouter text varies between calls
+even at temperature 0. Exact `answer_turn` vs API parity is covered by
+`RUN_INTEGRATION=1` → `tests/test_api_live.py`. E2E checks nginx `/api` routing
+(deterministic validation errors), spec §17 questions over HTTP, and CLI smoke.
+
+Compare failures carefully — both paths must share the same `data/` index and
+model settings.

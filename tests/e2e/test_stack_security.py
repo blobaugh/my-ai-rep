@@ -6,6 +6,8 @@ import subprocess
 
 import pytest
 
+from tests.e2e.helpers import image_architecture
+
 pytestmark = pytest.mark.e2e
 
 
@@ -45,21 +47,19 @@ def test_embedder_has_no_published_port(docker_available: bool) -> None:
 
 
 def test_dev_images_no_private_paths(docker_available: bool) -> None:
-    """Expected: BENBOT-30 verify passes on dev-built api image."""
+    """Expected: dev api image passes content checks at its build architecture."""
     if not docker_available:
         pytest.skip("docker not available")
     image = "benbot/api:dev"
-    inspect = subprocess.run(
-        ["docker", "image", "inspect", image],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if inspect.returncode != 0:
+    arch = image_architecture(image)
+    if arch is None:
         pytest.skip(f"{image} not built yet (run e2e.sh)")
     root = __import__("pathlib").Path(__file__).resolve().parents[2]
     script = root / "scripts" / "verify_image.sh"
     run = subprocess.run(
-        [str(script), image], capture_output=True, text=True, check=False
+        [str(script), "--expect-arch", arch, image],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert run.returncode == 0, run.stderr or run.stdout

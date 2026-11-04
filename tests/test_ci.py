@@ -28,6 +28,7 @@ def test_verify_image_script_checks_architecture_and_content() -> None:
     assert "Architecture" in VERIFY_SH or "amd64" in VERIFY_SH
     assert "qa*.md" in VERIFY_SH
     assert "--allow-root" in VERIFY_SH
+    assert "--expect-arch" in VERIFY_SH
 
 
 def test_ci_scripts_exist_and_are_shell() -> None:

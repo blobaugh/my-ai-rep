@@ -4,13 +4,18 @@
 set -eu
 
 usage() {
-  echo "usage: scripts/verify_image.sh [--allow-root] IMAGE" >&2
+  echo "usage: scripts/verify_image.sh [--allow-root] [--expect-arch ARCH] IMAGE" >&2
   exit 2
 }
 
 allow_root=0
+expect_arch=amd64
 while [ $# -gt 0 ]; do
   case "$1" in
+    --expect-arch)
+      expect_arch=${2:?}
+      shift 2
+      ;;
     --allow-root)
       allow_root=1
       shift
@@ -40,8 +45,8 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 arch=$(docker image inspect -f '{{.Architecture}}' "$image")
-if [ "$arch" != "amd64" ]; then
-  echo "verify_image: expected linux/amd64, got architecture=$arch for $image" >&2
+if [ "$arch" != "$expect_arch" ]; then
+  echo "verify_image: expected $expect_arch, got architecture=$arch for $image" >&2
   exit 1
 fi
 

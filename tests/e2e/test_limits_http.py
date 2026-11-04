@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 
 import httpx
 import pytest
@@ -40,28 +42,39 @@ def test_wrong_content_type(http_client, e2e_web_base) -> None:
 @pytest.mark.e2e_limits
 def test_busy_when_concurrency_saturated(http_client, e2e_web_base, require_llm) -> None:
     """Expected: second in-flight chat returns busy (MAX_CONCURRENT_TURNS=1 in e2e compose)."""
-    transport = httpx.Client(timeout=httpx.Timeout(180.0))
     base = e2e_web_base
+    # Long enough to overlap two turns while the model runs.
+    message = (
+        "In three detailed paragraphs, describe how you coach teams, "
+        "including retros, tools, and habits."
+    )
+    results: list[httpx.Response | None] = [None, None]
+    errors: list[BaseException | None] = [None, None]
 
-    def slow_post(label: str) -> httpx.Response:
-        return transport.post(
-            f"{base}/api/chat",
-            json={"message": label},
-            headers={"Content-Type": "application/json"},
-        )
+    def worker(index: int) -> None:
+        try:
+            with httpx.Client(timeout=httpx.Timeout(180.0)) as client:
+                results[index] = post_chat(client, base, f"{message} (turn {index + 1})")
+        except BaseException as exc:  # noqa: BLE001 — capture thread errors for assertion
+            errors[index] = exc
 
-    first = slow_post("slow-one")
-    import time
+    t0 = threading.Thread(target=worker, args=(0,))
+    t1 = threading.Thread(target=worker, args=(1,))
+    t0.start()
+    time.sleep(0.15)
+    t1.start()
+    t0.join(timeout=200)
+    t1.join(timeout=200)
 
-    time.sleep(0.1)
-    second = slow_post("slow-two")
-    statuses = {first.status_code, second.status_code}
+    assert errors[0] is None and errors[1] is None, (errors[0], errors[1])
+    assert results[0] is not None and results[1] is not None
     bodies = []
-    for resp in (first, second):
+    for resp in results:
+        assert resp is not None
         try:
             bodies.append(resp.json())
         except json.JSONDecodeError:
             bodies.append({})
+    statuses = {results[0].status_code, results[1].status_code}
     busy = any(b.get("status") == "busy" for b in bodies)
-    assert busy or 503 in statuses, bodies
-    transport.close()
+    assert busy, f"expected one busy response, got statuses={statuses} bodies={bodies}"
