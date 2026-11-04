@@ -190,6 +190,7 @@ def _row(case_id: str, question: str, answer: Any, flags: list[dict[str, Any]]) 
         "draft_text": (answer.debug.get("verification") or {}).get("original_text")
         or answer.text,
         "timings": answer.debug.get("timings") or {},
+        "usage": answer.debug.get("usage"),
     }
 
 
