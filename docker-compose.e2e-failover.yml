@@ -1,0 +1,8 @@
+# Use with E2E_FAILOVER=1 — dead primary, live secondary (set LLM_SECONDARY_* in .env).
+services:
+  api:
+    environment:
+      LLM_PRIMARY_BASE_URL: http://127.0.0.1:9/v1
+      LLM_PRIMARY_API_KEY: dead
+      LLM_PRIMARY_MODEL: fake
+      FAILOVER_RETRY_SECONDS: 30

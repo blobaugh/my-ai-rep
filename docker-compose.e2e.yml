@@ -1,0 +1,9 @@
+# Merged for scripts/e2e.sh — shorter sessions and tighter limits for HTTP tests.
+services:
+  api:
+    environment:
+      SESSION_MAX_MESSAGES: 3
+      SESSION_IDLE_MINUTES: 1
+      MAX_CONCURRENT_TURNS: 1
+      BUSY_WAIT_SECONDS: 2
+      MESSAGE_MAX_CHARS: 1000
