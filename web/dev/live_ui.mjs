@@ -151,7 +151,7 @@ async function main() {
       await delay(100);
     }
     assert(String(label).includes("AI"), "label did not load");
-    await sendAndWait(cdp, sessionId, "Who is Ben?", 1);
+    await sendAndWait(cdp, sessionId, "Who is Avery?", 1);
     await sendAndWait(cdp, sessionId, "Say more about that", 2);
     const summary = await evaluate(
       cdp,

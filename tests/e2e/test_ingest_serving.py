@@ -17,4 +17,4 @@ def test_ingest_while_api_healthy(http_client, e2e_web_base, require_llm) -> Non
     assert ingest.returncode == 0, (ingest.stderr or ingest.stdout)[-2000:]
     after = http_client.get(f"{e2e_web_base}/api/health")
     assert after.status_code == 200
-    chat_json(post_chat(http_client, e2e_web_base, "Who is Ben?"))
+    chat_json(post_chat(http_client, e2e_web_base, "Who is Avery?"))

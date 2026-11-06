@@ -24,7 +24,7 @@ def test_embed_frame_ancestors_header(http_client, e2e_web_base: str) -> None:
     assert r.status_code == 200
     csp = r.headers.get("content-security-policy", "")
     assert "frame-ancestors" in csp.lower()
-    assert "benlobaugh.com" in csp or "ben.lobaugh.net" in csp
+    assert "127.0.0.1:8080" in csp or "localhost:8080" in csp
 
 
 def test_chat_page_has_no_api_only_json(http_client, e2e_web_base: str) -> None:

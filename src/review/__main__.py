@@ -199,7 +199,7 @@ def cmd_delete_session(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Review BenBot conversation logs")
+    parser = argparse.ArgumentParser(description="Review chat conversation logs")
     sub = parser.add_subparsers(dest="command", required=True)
 
     gaps = sub.add_parser("gaps", help="Grouped content gaps and weak answers")

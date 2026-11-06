@@ -337,7 +337,7 @@ def print_summary_table(rows: list[dict[str, Any]]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compare models on BenBot eval suites")
+    parser = argparse.ArgumentParser(description="Compare models on retrieval chat eval suites")
     parser.add_argument(
         "--models",
         nargs="*",

@@ -83,5 +83,7 @@ def test_widget_mounts_on_host_page(browser_context, e2e_web_base: str) -> None:
     """Expected: widget.js mounts from a same-origin host page."""
     page = browser_context.new_page(viewport={"width": 1280, "height": 800})
     page.goto(f"{e2e_web_base}/dev/widget-e2e.html")
-    page.wait_for_selector("[data-benbot-widget]")
-    assert page.evaluate("() => window.BenBotWidget && window.BenBotWidget.mounted === true")
+    page.wait_for_selector("[data-persona-chat-widget]")
+    assert page.evaluate(
+        "() => window.PersonaChatWidget && window.PersonaChatWidget.mounted === true"
+    )

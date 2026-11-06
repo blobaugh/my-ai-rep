@@ -1,7 +1,7 @@
 [project]
 name = "benbot"
 version = "0.1.0"
-description = "BenBot — an AI that speaks for Ben"
+description = "Retrieval-grounded persona chat API with plain HTML/JS web UI and Docker deployment"
 requires-python = ">=3.9"
 dependencies = [
     "python-dotenv",

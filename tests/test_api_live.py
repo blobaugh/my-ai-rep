@@ -23,7 +23,7 @@ def test_live_api_reply_matches_answer_turn(tmp_path) -> None:
         max_messages=settings.session_max_messages,
     )
     app = create_app(settings=settings, store=store)
-    question = "Who is Ben?"
+    question = "Who is Avery?"
     direct = answer_turn(question, [], settings)
     response = TestClient(app).post("/api/chat", json={"message": question})
     assert response.status_code == 200

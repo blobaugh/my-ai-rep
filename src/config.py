@@ -479,6 +479,9 @@ def _frame_ancestors(data: Mapping[str, str]) -> tuple[str, ...]:
         if origin not in seen:
             seen.add(origin)
             cleaned.append(origin)
+    if not cleaned:
+        # Match docker/web/entrypoint.sh: empty default file still allows local widget/embed tests.
+        return ("http://127.0.0.1:8080", "http://localhost:8080")
     return tuple(cleaned)
 
 

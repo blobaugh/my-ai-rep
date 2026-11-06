@@ -65,9 +65,9 @@ def chat_result(message: str, session_id: str | None) -> tuple[int, dict[str, An
     if cleaned == "!down":
         return _body(503, "unavailable", "The model is not available right now. Please try again in a moment.", current or "down-session")
     if cleaned == "!busy":
-        return _body(429, "busy", "BenBot is busy right now. Please try again in a moment.", current or "busy-session")
+        return _body(429, "busy", "The assistant is busy right now. Please try again in a moment.", current or "busy-session")
     if cleaned == "!limit":
-        return _body(429, "daily_limit", "BenBot has reached today's message limit. Please try again tomorrow.", current or "limit-session")
+        return _body(429, "daily_limit", "The assistant has reached today's message limit. Please try again tomorrow.", current or "limit-session")
     if cleaned == "!error":
         return _body(500, "error", "Something went wrong. Please try again in a moment.", current or "error-session")
     if cleaned == "!bad":
@@ -100,7 +100,7 @@ def _body(
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "BenBotMock/1.0"
+    server_version = "PersonaChatMock/1.0"
 
     def log_message(self, fmt: str, *args: object) -> None:
         sys.stderr.write("%s\n" % (fmt % args))

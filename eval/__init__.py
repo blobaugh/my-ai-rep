@@ -1,1 +1,1 @@
-"""Evaluation helpers for BenBot retrieval quality."""
+"""Evaluation helpers for retrieval chat quality."""

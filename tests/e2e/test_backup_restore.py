@@ -11,7 +11,7 @@ pytestmark = [pytest.mark.e2e, pytest.mark.e2e_llm, pytest.mark.e2e_backup]
 
 def test_backup_upload_while_chatting(http_client, e2e_web_base, require_llm) -> None:
     """Expected: backup run uploads a snapshot after chat created the database."""
-    chat_json(post_chat(http_client, e2e_web_base, "Who is Ben?"))
+    chat_json(post_chat(http_client, e2e_web_base, "Who is Avery?"))
 
     bucket = ensure_minio_bucket()
     if bucket.returncode != 0:

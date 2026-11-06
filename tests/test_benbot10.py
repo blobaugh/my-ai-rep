@@ -252,7 +252,7 @@ def test_retrieval_k_reaches_the_pipeline() -> None:
 
     settings = _settings(RETRIEVAL_K="7", LLM_TEMPERATURE="0", LLM_MAX_TOKENS="600")
     answer = answer_turn(
-        "Who is Ben?",
+        "Who is Avery?",
         [{"role": "user", "content": "sailing"}, {"role": "assistant", "content": "boats"}],
         settings,
         clients=_Client(),
@@ -262,7 +262,7 @@ def test_retrieval_k_reaches_the_pipeline() -> None:
     assert seen["k"] == 7
     assert seen["temperature"] == 0
     assert seen["max_tokens"] == 600
-    assert seen["query"] == "Who is Ben?"
+    assert seen["query"] == "Who is Avery?"
     assert answer.text == "ok"
     assert "RULES" in str(answer.debug["prompt_hash"]) or answer.debug["prompt_hash"]
 

@@ -45,7 +45,7 @@ FOLLOWUPS = (
 STANDALONE = (
     "Do you coach?",
     "What do you do at work?",
-    "Who is Ben?",
+    "Who is Avery?",
     "Tell me about your toolkit",
     "Do you work remotely?",
     "What's your background?",
@@ -61,7 +61,7 @@ STANDALONE = (
     "Where do you coach?",
     "Can you lead without being the expert?",
     "How do you run one-on-ones?",
-    "What is BenBot?",
+    "What is AveryBot?",
     "Have you written a book?",
     "What kind of role do you want?",
     "How is coaching different from mentoring?",
@@ -140,7 +140,7 @@ def test_multi_index_is_incremental_and_mode_change_requires_rebuild(tmp_path: P
         "word_count": 2,
     }
     entry = parse_qa(
-        "## intro\nQ: Who are you? / Who is Ben?\nA: I am Example.\nsource: x\nreview: approved\n"
+        "## intro\nQ: Who are you? / Who is Avery?\nA: I am Example.\nsource: x\nreview: approved\n"
     )[0]
     import json
 

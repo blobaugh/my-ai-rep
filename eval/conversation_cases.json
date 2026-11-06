@@ -22,7 +22,7 @@
   {
     "id": "S3",
     "turns": [
-      {"question": "Who is Ben?", "checks": []},
+      {"question": "Who is Avery?", "checks": []},
       {
         "question": "What are you like to work for?",
         "checks": [{"name": "first_person"}]
@@ -34,7 +34,7 @@
     "turns": [
       {"question": "Tell me about the Sun", "checks": []},
       {
-        "question": "Who is Ben?",
+        "question": "Who is Avery?",
         "checks": [
           {"name": "first_person"},
           {"name": "not_fixed_line", "line": "4.4"}

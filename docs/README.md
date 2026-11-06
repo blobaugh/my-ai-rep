@@ -4,11 +4,13 @@ Start here after the root [`README.md`](../README.md). Decision records under
 [`decisions/`](decisions/) are the long-form “why”; web and deploy docs are the
 “how to run it.”
 
+Operator-specific notes (example domains and CI layout) live under [`history/`](history/).
+
 ## Web (visitor-facing system)
 
 | Doc | Topic |
 | --- | --- |
-| [web/architecture.md](web/architecture.md) | Hostname routing, containers, decisions D1–D17 |
+| [web/architecture.md](web/architecture.md) | Containers, CSP, frame-ancestors, config map |
 | [web/api.md](web/api.md) | HTTP routes under `/api` |
 | [web/containers.md](web/containers.md) | Docker Compose prod vs dev |
 | [web/embedding.md](web/embedding.md) | Widget install |
@@ -20,14 +22,10 @@ Start here after the root [`README.md`](../README.md). Decision records under
 
 | Doc | Topic |
 | --- | --- |
-| [deploy/README.md](deploy/README.md) | Runbook index |
-| [deploy/droplet-setup.md](deploy/droplet-setup.md) | Server prep, NPM, registry |
-| [deploy/verify.md](deploy/verify.md) | Production checklist (JSON session ids) |
-| [deploy/operations.md](deploy/operations.md) | Updates, rollback, monitoring |
-| [deploy/ci.md](deploy/ci.md) | GitLab CI and images |
-| [deploy/content.md](deploy/content.md) | Rsync and ingest on the droplet |
-| [deploy/backup-restore.md](deploy/backup-restore.md) | Spaces snapshots |
-| [deploy/mac-connectivity.md](deploy/mac-connectivity.md) | Reach home Ollama from VPS |
+| [deploy/README.md](deploy/README.md) | Deploy doc index |
+| [deploy/content.md](deploy/content.md) | Private markdown and ingest |
+| [deploy/backup-restore.md](deploy/backup-restore.md) | Object storage snapshots |
+| [deploy/mac-connectivity.md](deploy/mac-connectivity.md) | Reach home Ollama from a VPS |
 | [deploy/troubleshooting.md](deploy/troubleshooting.md) | Symptom table |
 
 ## Public repo and safety
@@ -41,7 +39,7 @@ Start here after the root [`README.md`](../README.md). Decision records under
 
 | Doc | Topic |
 | --- | --- |
-| [spec/benbot-behavior.md](spec/benbot-behavior.md) | Behavior spec (parts 1–2); edits need Ben’s approval |
+| [spec/benbot-behavior.md](spec/benbot-behavior.md) | Behavior spec; template adopters replace the named persona |
 | [decisions/](decisions/) | Architecture decision records (numbered) |
 
 ## Local scripts (no separate doc)
@@ -50,7 +48,7 @@ Start here after the root [`README.md`](../README.md). Decision records under
 | --- | --- |
 | [`../scripts/dev-up.sh`](../scripts/dev-up.sh) | `docker compose` dev stack |
 | [`../scripts/e2e.sh`](../scripts/e2e.sh) | Full e2e with report under `data/e2e/` |
-| [`../scripts/ci/`](../scripts/ci/) | Lint, test, scan, image verify (GitLab uses these) |
+| [`../scripts/ci/`](../scripts/ci/) | Lint, test, scan, image verify |
 
 ## Screenshots
 

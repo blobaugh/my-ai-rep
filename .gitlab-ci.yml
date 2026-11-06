@@ -1,5 +1,5 @@
 # BenBot container pipeline (private GitLab). Builds linux/amd64 images only.
-# See docs/deploy/ci.md for remotes, variables, and runner requirements.
+# See docs/history/deploy-ci-operator.md for remotes, variables, and runner examples.
 
 stages:
   - lint

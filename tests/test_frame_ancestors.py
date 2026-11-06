@@ -16,9 +16,8 @@ TEMPLATE = (ROOT / "web" / "nginx.conf.template").read_text(encoding="utf-8")
 def test_blank_uses_the_default_file() -> None:
     settings = load_settings(environ={})
     assert settings.frame_ancestors == (
-        "https://benlobaugh.com",
-        "https://www.benlobaugh.com",
-        "https://ben.lobaugh.net",
+        "http://127.0.0.1:8080",
+        "http://localhost:8080",
     )
 
 

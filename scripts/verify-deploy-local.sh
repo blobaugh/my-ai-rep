@@ -1,5 +1,5 @@
 #!/bin/sh
-# Dev-stack checks for docs/deploy/verify.md (localhost, not production).
+# Dev-stack checks aligned with docs/history/deploy-verify-operator.md (localhost, not production).
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)

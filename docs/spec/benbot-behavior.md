@@ -1,5 +1,7 @@
 # Spec part 1 of 2: BenBot behavior specification (v1, 2026-10-21)
 
+> **Template note:** the body below describes one named persona (“Ben”) from an early checkout. Forks should treat it as a **reference** and align `content/` plus `.env` names with their own subject; large spec edits still go through the operator’s review process.
+
 Commit Part 1 and Part 2 verbatim, in order, as `docs/spec/benbot-behavior.md`. MUST, MUST NOT, SHOULD, and MAY are used in their usual sense. Owner: Ben Lobaugh.
 
 ## 1. Purpose and scope

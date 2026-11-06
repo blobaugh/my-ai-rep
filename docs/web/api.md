@@ -15,7 +15,7 @@ It listens on `127.0.0.1:8000`. One worker because failover state lives in the p
 ```bash
 curl -s -X POST localhost:8000/api/chat \
   -H 'content-type: application/json' \
-  -d '{"message":"Who is Ben?"}'
+  -d '{"message":"Who is Avery?"}'
 ```
 
 ```json
@@ -59,8 +59,8 @@ curl -s localhost:8000/api/config
 
 ```json
 {
-  "ai_label": "BenBot is an AI that speaks for Ben.",
-  "opening_message": "Hi, I'm BenBot, an AI that speaks for Ben. Ask me anything about them.",
+  "ai_label": "Bot is an AI that speaks for the person I represent.",
+  "opening_message": "Hi, I'm Bot, an AI that speaks for the person I represent. Ask me anything about them.",
   "logging_notice": "Conversations are logged and kept to improve the bot, and messages are processed by AI model providers. Please don't share personal information.",
   "max_message_chars": 1000,
   "session_max_messages": 50,

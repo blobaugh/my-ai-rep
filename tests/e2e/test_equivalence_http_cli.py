@@ -62,7 +62,7 @@ def test_cli_ask_smoke_matches_http_persona(
     http_client, e2e_web_base, require_llm
 ) -> None:
     """Expected: CLI --ask and HTTP both return a non-empty AI-labeled answer."""
-    q = "Who is Ben?"
+    q = "Who is Avery?"
     http_reply = chat_json(post_chat(http_client, e2e_web_base, q)).get("reply", "")
     cli_reply = cli_ask_in_api_container(q)
     for text in (http_reply, cli_reply):

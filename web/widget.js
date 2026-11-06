@@ -20,26 +20,30 @@
     return Number(width) <= 720;
   }
 
+  if (root.PersonaChatWidget && root.PersonaChatWidget.mounted) return;
   if (root.BenBotWidget && root.BenBotWidget.mounted) return;
 
   var script = doc && doc.currentScript;
-  root.BenBotWidget = {
-    version: 1,
+  var api = {
+    version: 2,
     mounted: false,
     chatOrigin: chatOrigin,
     readOptions: readOptions,
     sheetForWidth: sheetForWidth,
   };
+  root.PersonaChatWidget = api;
+  /* Legacy embeds: keep alias until everyone migrates (see README breaking changes). */
+  root.BenBotWidget = api;
   if (!doc || !script || !script.src) return;
 
   var origin = chatOrigin(script.src);
   if (!origin) return;
   var options = readOptions(script);
-  root.BenBotWidget.mounted = true;
+  api.mounted = true;
 
   function mount() {
     var host = doc.createElement("div");
-    host.setAttribute("data-benbot-widget", "");
+    host.setAttribute("data-persona-chat-widget", "");
     host.setAttribute("data-side", options.position);
     host.style.position = "fixed";
     host.style.bottom = "calc(16px + env(safe-area-inset-bottom))";
@@ -57,7 +61,7 @@
     var bubble = doc.createElement("button");
     bubble.type = "button";
     bubble.className = "bubble";
-    bubble.setAttribute("aria-label", "Chat with BenBot, an AI");
+    bubble.setAttribute("aria-label", "Open chat assistant");
     bubble.setAttribute("aria-expanded", "false");
     bubble.textContent = "Chat";
     shadow.append(style, bubble);
@@ -77,11 +81,11 @@
       panel = doc.createElement("section");
       panel.className = "panel";
       panel.setAttribute("role", "dialog");
-      panel.setAttribute("aria-label", "Chat with BenBot, an AI");
+      panel.setAttribute("aria-label", "Chat assistant");
       var header = doc.createElement("div");
       header.className = "bar";
       var title = doc.createElement("p");
-      title.textContent = "BenBot is an AI";
+      title.textContent = "Chat assistant";
       var close = doc.createElement("button");
       close.type = "button";
       close.className = "close";
@@ -91,7 +95,7 @@
       });
       header.append(title, close);
       frame = doc.createElement("iframe");
-      frame.title = "Chat with BenBot, an AI";
+      frame.title = "Chat";
       frame.src = origin + "/embed";
       panel.append(header, frame);
       shadow.append(panel);

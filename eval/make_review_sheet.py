@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
                 questions[cid] = row.get("question", "")
 
     lines: list[str] = [
-        "# BenBot guardrail review sheet",
+        "# Guardrail review sheet",
         "",
         "Blank **Notes** lines are for human judgment of tone and faithfulness.",
         "",

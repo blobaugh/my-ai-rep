@@ -258,7 +258,7 @@ async function main() {
     const widgets = await waitUntil(
       cdp,
       page.sessionId,
-      `document.querySelectorAll("[data-benbot-widget]").length`,
+      `document.querySelectorAll("[data-persona-chat-widget]").length`,
     );
     assert(widgets === 1, `widgets ${widgets}`);
     const before = await evaluate(
@@ -271,12 +271,12 @@ async function main() {
     await evaluate(
       cdp,
       page.sessionId,
-      `document.querySelector("[data-benbot-widget]").shadowRoot.querySelector(".bubble").click()`,
+      `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".bubble").click()`,
     );
     const src = await waitUntil(
       cdp,
       page.sessionId,
-      `document.querySelector("[data-benbot-widget]").shadowRoot.querySelector("iframe")?.src || ""`,
+      `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector("iframe")?.src || ""`,
     );
     assert(String(src).endsWith("/embed"), src);
     let label = "";
@@ -295,30 +295,30 @@ async function main() {
     await evaluate(
       cdp,
       page.sessionId,
-      `document.querySelector("[data-benbot-widget]").shadowRoot.querySelector(".close").click()`,
+      `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".close").click()`,
     );
     const closed = await waitUntil(
       cdp,
       page.sessionId,
-      `document.querySelector("[data-benbot-widget]").shadowRoot.querySelector(".panel").hidden === true`,
+      `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".panel").hidden === true`,
     );
     assert(closed === true, "close did not hide the panel");
     const focused = await evaluate(
       cdp,
       page.sessionId,
-      `document.querySelector("[data-benbot-widget]").shadowRoot.activeElement?.className || ""`,
+      `document.querySelector("[data-persona-chat-widget]").shadowRoot.activeElement?.className || ""`,
     );
     assert(focused === "bubble", `focus ${focused}`);
 
     await evaluate(
       cdp,
       page.sessionId,
-      `document.querySelector("[data-benbot-widget]").shadowRoot.querySelector(".bubble").click()`,
+      `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".bubble").click()`,
     );
     await waitUntil(
       cdp,
       page.sessionId,
-      `document.querySelector("[data-benbot-widget]").shadowRoot.querySelector(".panel").hidden === false`,
+      `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".panel").hidden === false`,
     );
     await evaluate(
       cdp,
@@ -328,7 +328,7 @@ async function main() {
     const escaped = await waitUntil(
       cdp,
       page.sessionId,
-      `document.querySelector("[data-benbot-widget]").shadowRoot.querySelector(".panel").hidden === true`,
+      `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".panel").hidden === true`,
     );
     assert(escaped === true, "escape did not close");
 
@@ -341,19 +341,19 @@ async function main() {
       await evaluate(
         cdp,
         page.sessionId,
-        `document.querySelector("[data-benbot-widget]").shadowRoot.querySelector(".bubble").click()`,
+        `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".bubble").click()`,
       );
       const sheet = await waitUntil(
         cdp,
         page.sessionId,
-        `document.querySelector("[data-benbot-widget]").shadowRoot.querySelector(".panel").classList.contains("sheet")`,
+        `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".panel").classList.contains("sheet")`,
       );
       assert(sheet === true, `not a sheet at ${width}`);
       if (width === 375) await shot(cdp, page.sessionId, "widget-sheet-375x667.png");
       await evaluate(
         cdp,
         page.sessionId,
-        `document.querySelector("[data-benbot-widget]").shadowRoot.querySelector(".close").click()`,
+        `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".close").click()`,
       );
     }
     await cdp.send("Target.closeTarget", { targetId: page.targetId });
@@ -365,7 +365,7 @@ async function main() {
       styled.sessionId,
     );
     const box = await waitUntil(cdp, styled.sessionId, `(() => {
-      const bubble = document.querySelector("[data-benbot-widget]")?.shadowRoot?.querySelector(".bubble");
+      const bubble = document.querySelector("[data-persona-chat-widget]")?.shadowRoot?.querySelector(".bubble");
       if (!bubble) return null;
       const rect = bubble.getBoundingClientRect();
       return { width: rect.width, height: rect.height };
@@ -373,7 +373,7 @@ async function main() {
     assert(Math.abs(box.width - 56) < 2, `bubble width ${box.width}`);
     assert(Math.abs(box.height - 56) < 2, `bubble height ${box.height}`);
     const place = await evaluate(cdp, styled.sessionId, `(() => {
-      const rect = document.querySelector("[data-benbot-widget]").shadowRoot.querySelector(".bubble").getBoundingClientRect();
+      const rect = document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".bubble").getBoundingClientRect();
       return { right: rect.right, bottom: rect.bottom };
     })()`);
     assert(place.right > 1200, `bubble not at the right edge (${place.right})`);

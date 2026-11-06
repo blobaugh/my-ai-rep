@@ -67,5 +67,5 @@ docker compose exec api curl -fsS "$LLM_PRIMARY_BASE_URL/models"
 ## Verification checklist
 
 - [ ] Primary answers from droplet api container
-- [ ] Failover to OpenRouter when primary is stopped ([verify.md](./verify.md) §8)
+- [ ] Failover to OpenRouter when primary is stopped ([deploy-verify-operator.md](../history/deploy-verify-operator.md) §8)
 - [ ] No public Ollama port on Mac WAN IP

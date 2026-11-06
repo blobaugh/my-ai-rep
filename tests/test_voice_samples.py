@@ -21,10 +21,10 @@ def test_system_prompt_identical_when_voice_off(tmp_path: Path) -> None:
     about = tmp_path / "about.md"
     voice = tmp_path / "voice_samples.md"
     prompt.write_text(
-        "Rules here.\n\n{{VOICE_SAMPLES}}About Ben:\n{{ABOUT_BEN}}\n",
+        "Rules here.\n\n{{VOICE_SAMPLES}}About Avery:\n{{ABOUT_BEN}}\n",
         encoding="utf-8",
     )
-    about.write_text("Ben facts.\n", encoding="utf-8")
+    about.write_text("Avery facts.\n", encoding="utf-8")
     voice.write_text("How I talk:\nExample line.\n", encoding="utf-8")
 
     off = load_system_prompt(
@@ -35,7 +35,7 @@ def test_system_prompt_identical_when_voice_off(tmp_path: Path) -> None:
     )
     assert "{{VOICE_SAMPLES}}" not in off
     assert "How I talk" not in off
-    assert off == "Rules here.\n\nAbout Ben:\nBen facts.\n\n"
+    assert off == "Rules here.\n\nAbout Avery:\nAvery facts.\n\n"
 
 
 def test_system_prompt_inserts_voice_before_about_when_on(tmp_path: Path) -> None:
@@ -43,10 +43,10 @@ def test_system_prompt_inserts_voice_before_about_when_on(tmp_path: Path) -> Non
     about = tmp_path / "about.md"
     voice = tmp_path / "voice_samples.md"
     prompt.write_text(
-        "Rules here.\n\n{{VOICE_SAMPLES}}About Ben:\n{{ABOUT_BEN}}\n",
+        "Rules here.\n\n{{VOICE_SAMPLES}}About Avery:\n{{ABOUT_BEN}}\n",
         encoding="utf-8",
     )
-    about.write_text("Ben facts.\n", encoding="utf-8")
+    about.write_text("Avery facts.\n", encoding="utf-8")
     voice.write_text(
         'How I talk (style examples only):\nExample 1:\n"hi"\n',
         encoding="utf-8",
@@ -61,7 +61,7 @@ def test_system_prompt_inserts_voice_before_about_when_on(tmp_path: Path) -> Non
     assert "How I talk (style examples only):" in on
     rules_end = on.index("Rules here.")
     voice_at = on.index("How I talk")
-    about_at = on.index("About Ben:")
+    about_at = on.index("About Avery:")
     assert rules_end < voice_at < about_at
 
 

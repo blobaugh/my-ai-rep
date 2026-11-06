@@ -9,7 +9,7 @@ function load() {
   const context = { URL };
   vm.createContext(context);
   vm.runInContext(source, context);
-  return context.BenBotWidget;
+  return context.PersonaChatWidget;
 }
 
 test("origin comes from the script src", () => {

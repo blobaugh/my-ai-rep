@@ -1,28 +1,28 @@
-# BenBot
+# Persona chat (benbot)
 
-BenBot is a small web app that lets visitors chat with an AI speaking in my voice,
-grounded in markdown I wrote about myself. I built it as a **learning project**:
-prompting, retrieval, verification, containers, and the messy parts of running a
-real LLM behind HTTP.
+A small **retrieval-grounded** chat stack: FastAPI backend, plain HTML/CSS/JS front end,
+Docker Compose for local dev, and optional eval/review tooling. You provide markdown
+(`content/` or the fictional samples in `examples/`); the bot answers **only** from that
+material and labels itself as an AI.
 
-The public git repo is [`my-ai-rep`](https://github.com/blobaugh/my-ai-rep); the
-product name is **BenBot**. Same codebase, two names — the repo is generic, the
-bot is mine.
+**Use this repo as a template:** set `BOT_NAME`, `HUMAN_NAME`, and your content; build
+or pull container images under your own registry names. Historical notes with example
+domains and a specific GitHub/GitLab layout live under [`docs/history/`](docs/history/).
 
-Screenshots (chat page and widget) live under [`docs/web/screenshots/e2e/`](docs/web/screenshots/e2e/)
-after you run the optional Playwright e2e tests (`docs/web/e2e.md`).
+Screenshots (chat page and widget) land in [`docs/web/screenshots/e2e/`](docs/web/screenshots/e2e/)
+after optional Playwright e2e tests ([`docs/web/e2e.md`](docs/web/e2e.md)).
 
 ## What is in this repo
 
 - Python API, ingest, retrieval, evals, and review tools (`src/`)
 - Plain HTML/CSS/JS chat UI and embeddable widget (`web/`)
-- Docker Compose for local dev and production pull-only layout
+- Docker Compose for local dev and production-style pull-only layout
 - Fictional sample content (`examples/`) you can index without private files
-- Decision records and deployment runbooks (`docs/`)
+- Decision records and deployment notes (`docs/`)
 
 ## What is deliberately not here
 
-- **`content/`** — my real notes and Q&A (gitignored)
+- **`content/`** — operator-private markdown (gitignored by default)
 - **`data/`** — SQLite log and vector index (gitignored)
 - **`.env`** — keys and local overrides (gitignored; see `.env.example`)
 - **Voice samples** and other private prompts listed in `.gitignore`
@@ -53,22 +53,22 @@ benbot_backup  (hourly SQLite snapshots to object storage, in production)
 3. `answer_turn` runs guards, embeds the query, retrieves chunks, builds the prompt, calls the model, verifies the draft ([`docs/decisions/007-prompt-layout.md`](docs/decisions/007-prompt-layout.md), [`docs/decisions/016-llm-failover.md`](docs/decisions/016-llm-failover.md)).
 4. The reply, category, flags, and retrieval metadata are stored; JSON goes back to the browser ([`docs/decisions/019-http-api.md`](docs/decisions/019-http-api.md)).
 
-Why it looks like this: a **NumPy file index** instead of a vector DB ([`docs/decisions/003-numpy-file-vector-store.md`](docs/decisions/003-numpy-file-vector-store.md)), **no front-end framework** ([`docs/decisions/020-plain-chat-ui.md`](docs/decisions/020-plain-chat-ui.md)), **verification in code** (not “please follow the rules”), **server-side session history**, and **no token streaming** yet ([`docs/web/architecture.md`](docs/web/architecture.md) D5).
+Why it looks like this: a **NumPy file index** instead of a vector DB ([`docs/decisions/003-numpy-file-vector-store.md`](docs/decisions/003-numpy-file-vector-store.md)), **no front-end framework** ([`docs/decisions/020-plain-chat-ui.md`](docs/decisions/020-plain-chat-ui.md)), **verification in code** (not “please follow the rules”), **server-side session history**, and **no token streaming** yet ([`docs/web/architecture.md`](docs/web/architecture.md)).
 
 ## Quick start (sample content, no private `content/`)
 
 These steps assume **Python 3.9+** and **[Ollama](https://ollama.com/download)** installed on your machine.
 
 ```bash
-git clone https://github.com/blobaugh/my-ai-rep.git
-cd my-ai-rep
+git clone <YOUR_FORK_OR_UPSTREAM_URL> benbot
+cd benbot
 
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 
 cp .env.example .env
-# Optional: BOT_NAME= and HUMAN_NAME= for greetings
+# Set BOT_NAME= and HUMAN_NAME= for greetings; leave HUMAN_NAME blank for generic copy
 
 ollama pull llama3.1:8b          # stock model; matches .env.example defaults
 ollama pull nomic-embed-text
@@ -178,7 +178,7 @@ Every setting below is loaded by `src/config.py`. Blank usually means “unset�
 | RETRIEVAL_K | 4 | Chunks retrieved per turn |
 | RETRIEVAL_MAX_PER_ARTICLE | 2 | Cap per source file |
 | RETRIEVAL_MIN_SCORE | unset | Optional cosine floor |
-| WEAK_RETRIEVAL_SCORE | unset | Flag weak retrieval below this score |
+| WEAK_RETRIEVAL_SCORE | unset | Flag weak retrieval below this |
 | RETRIEVAL_QUERY_MODE | auto | `auto` or `turns` for query text |
 | RETRIEVAL_QUERY_TURNS | 2 | User turns joined when mode is `turns` |
 | HISTORY_TURNS | 6 | Server-side history window |
@@ -236,12 +236,12 @@ Docker-specific vars (`BENBOT_HOME`, `BENBOT_IMAGE_PREFIX`, `BENBOT_TAG`, `PROXY
 
 ## Deployment
 
-Production is **containers on a VPS**, images built in **private GitLab CI**, code public on GitHub — see [`docs/deploy/README.md`](docs/deploy/README.md). That runbook targets my setup (DigitalOcean droplet, Nginx Proxy Manager, Cloudflare). You would change hostnames, registry, and where the primary model runs.
+Typical layout: **containers on a VPS**, images from **your** registry, reverse proxy and DNS under **your** control. Generic topics: [`docs/deploy/README.md`](docs/deploy/README.md). Example hostnames and a private-GitLab pipeline are preserved under [`docs/history/`](docs/history/).
 
 ## Privacy and safety (plain language)
 
 - **Stored:** full visitor messages and replies, flags, retrieval metadata, and model connection used — in SQLite. **Not stored:** IP addresses or user agents ([`docs/decisions/018-sqlite-store.md`](docs/decisions/018-sqlite-store.md)).
-- **Visible UI:** AI label, opening message, and a notice that chats are logged ([`docs/web/architecture.md`](docs/web/architecture.md) D17).
+- **Visible UI:** AI label, opening message, and a notice that chats are logged ([`docs/web/architecture.md`](docs/web/architecture.md) and behavior spec).
 - **Third parties:** if you configure OpenRouter (or another hosted secondary), visitor text leaves your server for that provider.
 - **Guards and verification** run in code; prompt rules are public by design. That helps transparency; it is **not** a legal or security guarantee.
 
@@ -258,8 +258,8 @@ pip install -e ".[dev]"
 
 `pytest` alone skips e2e and optional integration markers. Live Ollama:
 `RUN_INTEGRATION=1 pytest -m integration`. Dev-stack e2e: `./scripts/e2e.sh`
-(sets `RUN_E2E=1`; see [`docs/web/e2e.md`](docs/web/e2e.md)). GitLab CI runs the
-same lint/test/scan scripts; image build is documented in [`docs/deploy/ci.md`](docs/deploy/ci.md).
+(sets `RUN_E2E=1`; see [`docs/web/e2e.md`](docs/web/e2e.md)). CI image build patterns
+(one possible setup) are in [`docs/history/deploy-ci-operator.md`](docs/history/deploy-ci-operator.md).
 
 ## Public git
 
@@ -270,14 +270,17 @@ git config core.hooksPath .githooks   # optional pre-commit
 
 ## How this was built
 
-Work is tracked in FeedPebble issues (BenBot project). Most code and docs were drafted with **coding agents**; I review behavior on real Ollama and Docker before calling something done. Eval scripts under `eval/` and decision records under `docs/decisions/` capture what we measured.
-
-Article series: *placeholder — links will go here when published.*
+Issues are tracked in this workspace’s tooling; decision records live under `docs/decisions/`.
 
 ## Docs index
 
 Full map: [`docs/README.md`](docs/README.md).
 
+## Breaking changes (widget)
+
+- **`window.PersonaChatWidget`** is the supported global; **`window.BenBotWidget`** remains an alias.
+- Host node attribute: **`data-persona-chat-widget`** (replacing `data-benbot-widget`).
+
 ## License
 
-[MIT License](LICENSE) — Copyright (c) 2026 Ben Lobaugh
+[MIT License](LICENSE) — Copyright (c) 2026 BenBot contributors

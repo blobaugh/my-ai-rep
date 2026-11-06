@@ -20,7 +20,7 @@ def test_real_ollama_embedding_round_trip() -> None:
         pytest.skip("Set RUN_INTEGRATION=1 to run live Ollama embedding tests")
     cfg = load_embed_config()
     vectors, truncated = embed_texts(
-        ["BenBot integration probe"],
+        ["Persona chat integration probe"],
         config=cfg,
         kind="query",
     )

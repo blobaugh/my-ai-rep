@@ -8,7 +8,7 @@
 
 `web/widget.js` is a classic script with no dependencies. It reads its own `src` to find the chat origin, draws a bubble in a shadow tree, and creates the `/embed` iframe on the first open. The host page does not receive conversation text.
 
-`/embed` may be framed only by origins in `FRAME_ANCESTORS`. A blank setting uses `web/frame_ancestors.default`. The full page sends `frame-ancestors 'none'`. The nginx template is rendered by substituting that list. The image itself is BENBOT-24.
+`/embed` may be framed only by origins in `FRAME_ANCESTORS`. A blank setting reads `web/frame_ancestors.default` (may be empty comments only); **config** and the **Docker web entrypoint** then fall back to `http://127.0.0.1:8080` and `http://localhost:8080` so local stacks start. The full page sends `frame-ancestors 'none'`. The nginx template is rendered by substituting that list. The image itself is BENBOT-24.
 
 The default file names `https://ben.lobaugh.net`. That string is kept out of `src/` because the public-source check rejects it there. The setting is still read only by `src/config.py`.
 

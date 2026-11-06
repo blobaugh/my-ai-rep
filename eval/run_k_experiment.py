@@ -20,7 +20,7 @@ from src.prompt import load_system_prompt
 
 OUT = Path("data/eval/benbot10_k_experiment.json")
 FOCUS = [
-    "Who is Ben?",
+    "Who is Avery?",
     "Who are you?",
     "What are you like to work for?",
     "What is your leadership style?",

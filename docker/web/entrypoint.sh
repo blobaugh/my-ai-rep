@@ -8,8 +8,8 @@ if [ -z "$ancestors" ]; then
 fi
 
 if [ -z "$ancestors" ]; then
-  echo "FRAME_ANCESTORS is empty" >&2
-  exit 1
+  # Default file may be empty for a generic OSS checkout; allow localhost / loopback widget tests.
+  ancestors="http://127.0.0.1:8080 http://localhost:8080"
 fi
 
 case "$ancestors" in

@@ -1,4 +1,4 @@
-# Origins allowed to frame /embed. One origin per line. Blank FRAME_ANCESTORS uses this file.
-https://benlobaugh.com
-https://www.benlobaugh.com
-https://ben.lobaugh.net
+# Origins allowed to frame /embed when FRAME_ANCESTORS is unset.
+# Add one https:// or http:// origin per line. Lines starting with # are ignored.
+# For production, set FRAME_ANCESTORS to your site origins (space-separated).
+# Local dev: the Docker web entrypoint defaults to 127.0.0.1:8080 and localhost:8080 if this file is empty.

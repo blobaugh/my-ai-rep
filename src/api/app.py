@@ -52,7 +52,8 @@ def create_app(
     complete = answer_fn or answer_turn
     ready = index_ok or _index_files_ok
     slots = TurnSlots(settings)
-    app = FastAPI(title="BenBot", docs_url=None, redoc_url=None, openapi_url=None)
+    api_title = settings.bot_name.strip() or "Chat API"
+    app = FastAPI(title=api_title, docs_url=None, redoc_url=None, openapi_url=None)
     if settings.cors_allowed_origins:
         app.add_middleware(
             CORSMiddleware,

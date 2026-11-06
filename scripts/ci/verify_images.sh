@@ -10,7 +10,7 @@ cd "$root"
 
 ./scripts/verify_image.sh "$IMAGE_API"
 ./scripts/verify_image.sh "$IMAGE_WEB"
-# Upstream Ollama image runs as root; models live under /root/.ollama (see docs/deploy/ci.md).
+# Upstream Ollama image runs as root; models live under /root/.ollama (see docs/history/deploy-ci-operator.md).
 ./scripts/verify_image.sh --allow-root "$IMAGE_EMBEDDER"
 ./scripts/verify_image.sh "$IMAGE_BACKUP"
 

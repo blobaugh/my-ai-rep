@@ -58,7 +58,7 @@ python -m pytest tests/e2e/test_ui_browser.py -q
 
 **Manual only (no automated test):** stop **both** LLM connections or stop the
 embedder mid-suite — those disrupt the shared stack for other tests. Use
-`docs/deploy/verify.md` step 8 for production failover instead.
+[`docs/history/deploy-verify-operator.md`](../history/deploy-verify-operator.md) step 8 for production failover instead.
 
 ### Failover pytest
 
