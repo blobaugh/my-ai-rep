@@ -8,7 +8,7 @@
 
 The visitor API is FastAPI 0.115.14 on Starlette 0.46.2, served by uvicorn 0.32.1. Those releases install and import on the checkout's Python 3.9.6. Newer FastAPI releases were not required. There is no second framework.
 
-`python -m src.api` starts **one** worker on `127.0.0.1:8000`. Failover state lives in that process. A second worker would not know the first had failed over. Daily counters, when they arrive, belong in SQLite or in this same process.
+`python -m src.api` starts **one** worker on `127.0.0.1:8000`. Failover state lives in that process. A second worker would not know the first had failed over. The UTC daily message cap is persisted in SQLite (BENBOT-28); concurrency slots are in-process only.
 
 Every route is declared under `/api` in the app. The proxy forwards the prefix and does not rewrite it.
 
@@ -28,7 +28,7 @@ The sentences proposed on the issue, which name a person and a hobby, stay unset
 
 Visitors get one JSON shape: `session_id`, `reply`, `status`, `session`. They do not get stack traces, paths, or settings. The log line is a JSON object with the request id, status, and HTTP code. It does not include the visitor text, an address, or a secret.
 
-`busy` and `daily_limit` are returned by `src/api/limits.py` once BENBOT-28 implements them. Today that function returns nothing and the turn proceeds.
+`busy` and `daily_limit` are returned by `src/api/limits.py` (BENBOT-28). Concurrency is in-process; the daily cap is stored in SQLite and survives restarts.
 
 ## What was verified
 

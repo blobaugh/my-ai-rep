@@ -113,7 +113,10 @@ Dev merge mounts `examples/` at `/content`. See `docs/deploy/content.md`.
 |---|---|---|---|
 | backup | `benbot/backup` | default (egress only) | `python -m src.backup loop`; data volume **read-only** |
 
-See `docs/deploy/backup-restore.md`. Dev compose adds MinIO and points `SPACES_*` at it.
+See `docs/deploy/backup-restore.md`. Dev compose adds **Silo** (`pgsty/silo`, S3-compatible) on
+`127.0.0.1:9000` and points `SPACES_*` at it; e2e runs a one-shot backup via the api container
+(WAL-safe). The `backup` service loop uses the read-only data mount and may log errors until
+chat has created the database.
 
 ## Review (one-off)
 

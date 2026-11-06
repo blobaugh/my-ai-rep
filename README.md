@@ -70,8 +70,9 @@ pip install -e ".[dev]"
 cp .env.example .env
 # Optional: BOT_NAME= and HUMAN_NAME= for greetings
 
-ollama pull llama3.1:8b
+ollama pull llama3.1:8b          # stock model; matches .env.example defaults
 ollama pull nomic-embed-text
+# Optional tuned model (8192 ctx): see docs/decisions/008-context-window.md
 
 export CONTENT_DIR=examples
 python -m src.ingest
@@ -92,11 +93,14 @@ docker compose --profile tools run --rm ingest
 
 Open http://127.0.0.1:8080/ . The dev stack mounts `examples/` as `/content` automatically (`docker-compose.dev.yml`).
 
-End-to-end tests (optional): `./scripts/e2e.sh` — see [`docs/web/e2e.md`](docs/web/e2e.md).
+End-to-end tests (optional, Docker + host Ollama): `./scripts/e2e.sh` builds the dev
+stack, runs ingest on `examples/`, and pytest (HTTP limits, backup to local Silo,
+sessions, and more). Failover and Playwright UI checks are separate — see
+[`docs/web/e2e.md`](docs/web/e2e.md).
 
 ## Add your own content
 
-Layout ([BENBOT-36](docs/spec/benbot-behavior.md)):
+Content layout ([`docs/spec/benbot-behavior.md`](docs/spec/benbot-behavior.md), BENBOT-36):
 
 | File | Role |
 | --- | --- |
@@ -243,12 +247,19 @@ Production is **containers on a VPS**, images built in **private GitLab CI**, co
 
 ## Tests
 
+Unit and integration tests (no Docker required for the default suite):
+
 ```bash
-pytest
-ruff check .
+pip install -e ".[dev]"
+./scripts/ci/lint.sh
+./scripts/ci/test.sh          # pytest + node --test on web/
+./scripts/ci/scan.sh          # scripts/check_public_safe.sh
 ```
 
-Integration: `RUN_INTEGRATION=1 pytest -m integration`. Dev-stack e2e: `./scripts/e2e.sh` (`RUN_E2E=1`). See [`docs/web/e2e.md`](docs/web/e2e.md).
+`pytest` alone skips e2e and optional integration markers. Live Ollama:
+`RUN_INTEGRATION=1 pytest -m integration`. Dev-stack e2e: `./scripts/e2e.sh`
+(sets `RUN_E2E=1`; see [`docs/web/e2e.md`](docs/web/e2e.md)). GitLab CI runs the
+same lint/test/scan scripts; image build is documented in [`docs/deploy/ci.md`](docs/deploy/ci.md).
 
 ## Public git
 

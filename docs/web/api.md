@@ -44,8 +44,8 @@ An unknown or expired id is not an error. The response carries a new server id. 
 | unavailable | 503 | The chat model or the embedder did not answer |
 | invalid | 400 | Empty, longer than `MESSAGE_MAX_CHARS`, or a body that cannot be read |
 | error | 500 | The turn failed for another reason |
-| busy | 429 | Reserved for the concurrency cap (not enabled yet) |
-| daily_limit | 429 | Reserved for the daily cap (not enabled yet) |
+| busy | 429 | `MAX_CONCURRENT_TURNS` slots are full (`src/api/limits.py`) |
+| daily_limit | 429 | UTC-day cap reached (`DAILY_MESSAGE_CAP`; persisted in SQLite) |
 
 `session_full` asks the visitor to start a new chat. `unavailable` says the model is not available right now. Extra JSON fields, including any `history` field, are ignored.
 
