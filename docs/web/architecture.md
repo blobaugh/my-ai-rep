@@ -63,10 +63,9 @@ LLM_PRIMARY_BASE_URL / _API_KEY / _MODEL / _TIMEOUT_SECONDS; LLM_SECONDARY_* (op
 3. Which connection is primary (Mac or OpenRouter): configuration only.
 4. Droplet size and embedder speed on it: unmeasured.
 5. Whether Ben's private GitLab has Container Registry and a runner that can build images: unverified.
-6. Open-source license: Ben decides before the repo goes public.
-7. Whether the bot may share Ben's contact email (the UI uses an optional CONTACT_URL meanwhile) and what it may say about family (project doc, Guardrails).
-8. Whether `content/` is also backed up to Spaces (default off).
-9. Exact wording of the AI label, opening message, and logging notice, including that messages are processed by third-party AI providers when OpenRouter is used.
+6. Whether the bot may share Ben's contact email (the UI uses an optional CONTACT_URL meanwhile) and what it may say about family (project doc, Guardrails).
+7. Whether `content/` is also backed up to Spaces (default off).
+8. Exact wording of the AI label, opening message, and logging notice, including that messages are processed by third-party AI providers when OpenRouter is used.
 
 ## 8. Conventions for every issue
 - Plain Python, small functions, type hints, ruff and pytest as configured. Tests use fakes and need no running Ollama or OpenRouter. Tests that need the private `content/` files SKIP when absent and use `examples/`.

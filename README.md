@@ -269,4 +269,4 @@ Full map: [`docs/README.md`](docs/README.md).
 
 ## License
 
-License: to be decided.
+[MIT License](LICENSE) — Copyright (c) 2026 Ben Lobaugh
