@@ -27,18 +27,23 @@ Expect: JSON with a healthy status (same shape as local `/api/health`).
 ## 3. Chat session (two messages) **(Mac)**
 
 ```bash
-SESSION=$(curl -sS -D - -o /tmp/benbot_chat1.json \
+curl -sS -o /tmp/benbot_chat1.json \
   -H 'Content-Type: application/json' \
   -d '{"message":"Say hello in one short sentence."}' \
-  https://bot.benlobaugh.com/api/chat | awk '/^Set-Cookie:/ {print $2}' | tr -d '\r')
+  https://bot.benlobaugh.com/api/chat
 
-curl -sS -H 'Content-Type: application/json' -H "Cookie: $SESSION" \
-  -d '{"message":"What did I just ask you?"}' \
+SESSION=$(jq -r .session_id /tmp/benbot_chat1.json)
+
+curl -sS -H 'Content-Type: application/json' \
+  -d "$(jq -n --arg sid "$SESSION" --arg msg 'What did I just ask you?' \
+    '{session_id: $sid, message: $msg}')" \
   https://bot.benlobaugh.com/api/chat | head -c 500
 echo
 ```
 
-Expect: first response sets a session cookie; second response references the prior turn.
+Expect: first response JSON includes a non-empty `session_id`; the second response keeps
+the same id and references the prior turn (same contract as [api.md](../web/api.md) —
+the browser stores that id in `localStorage`, not a cookie).
 If you get HTML instead of JSON, NPM path routing is wrong ([droplet-setup.md](./droplet-setup.md)).
 
 ## 4. Embed framing policy **(Mac)**
@@ -118,6 +123,17 @@ With `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d`:
 ./scripts/verify-deploy-local.sh
 curl -fsS http://127.0.0.1:8080/api/health
 curl -fsSI http://127.0.0.1:8080/embed | grep -i content-security-policy
+
+# Two-message session (same as step 3; JSON session_id, not cookies)
+curl -sS -o /tmp/benbot_chat1.json \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"Say hello in one short sentence."}' \
+  http://127.0.0.1:8080/api/chat
+SESSION=$(jq -r .session_id /tmp/benbot_chat1.json)
+curl -sS -H 'Content-Type: application/json' \
+  -d "$(jq -n --arg sid "$SESSION" --arg msg 'What did I just ask you?' \
+    '{session_id: $sid, message: $msg}')" \
+  http://127.0.0.1:8080/api/chat | jq -r '.session_id, .status, .reply' | head -20
 ```
 
 **Validated in repo (2026-11-03):** commands syntax-checked; full `./scripts/verify-docker.sh`
