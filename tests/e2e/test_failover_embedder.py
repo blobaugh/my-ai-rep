@@ -1,4 +1,4 @@
-"""Failover and embedder-down scenarios (optional compose overrides)."""
+"""Failover scenario (optional compose override)."""
 
 from __future__ import annotations
 
@@ -6,30 +6,36 @@ import os
 
 import pytest
 
-pytestmark = [pytest.mark.e2e, pytest.mark.e2e_llm]
+from tests.e2e.helpers import chat_json, compose_exec, post_chat
+
+pytestmark = [pytest.mark.e2e, pytest.mark.e2e_llm, pytest.mark.e2e_failover]
 
 
-def test_failover_primary_dead(require_llm) -> None:
-    """Expected: secondary answers with failover_used when E2E_FAILOVER=1.
-
-    Requires docker-compose.e2e-failover.yml and LLM_SECONDARY_* in .env.
-    """
+def test_failover_primary_dead(http_client, e2e_web_base, require_llm) -> None:
+    """Expected: chat succeeds on secondary; review failovers lists the turn."""
     if os.environ.get("E2E_FAILOVER") != "1":
-        pytest.skip("set E2E_FAILOVER=1 and merge docker-compose.e2e-failover.yml")
+        pytest.skip(
+            "set E2E_FAILOVER=1, merge docker-compose.e2e-failover.yml, "
+            "and configure LLM_SECONDARY_* (see docs/web/e2e.md)"
+        )
 
-
-def test_both_llm_down_unavailable(http_client, e2e_web_base) -> None:
-    """Expected: 503 unavailable JSON when no model works.
-
-    Manual: stop Ollama and unset secondary, or use compose override — not automated here.
-    """
-    pytest.skip(
-        "could not test — stopping both models safely requires manual compose env"
+    body = chat_json(
+        post_chat(http_client, e2e_web_base, "Reply with exactly: failover-check")
     )
+    assert body["status"] == "ok"
+    assert body.get("reply")
 
-
-def test_embedder_stopped_unavailable(http_client, e2e_web_base, require_llm) -> None:
-    """Expected: unavailable when embedder is down (ingest/search broken)."""
-    pytest.skip(
-        "could not test automatically — docker stop benbot_embedder disrupts other tests"
+    review = compose_exec(
+        "api",
+        "python",
+        "-m",
+        "src.review",
+        "failovers",
+        "--since",
+        "24h",
     )
+    if review.returncode != 0:
+        pytest.fail(review.stderr or review.stdout)
+    first_line = review.stdout.strip().splitlines()[0]
+    count = int(first_line.split()[0])
+    assert count >= 1, review.stdout

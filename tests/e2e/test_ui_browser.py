@@ -1,6 +1,8 @@
-"""Playwright UI checks (optional)."""
+"""Playwright UI checks (optional; excluded from default e2e.sh)."""
 
 from __future__ import annotations
+
+import json
 
 import pytest
 
@@ -32,9 +34,54 @@ def test_chat_page_desktop(browser_context, e2e_web_base: str) -> None:
 
 
 def test_xss_string_renders_as_text(browser_context, e2e_web_base: str) -> None:
-    """Expected: script tags shown literally, not executed."""
-    pytest.skip("requires LLM reply path — extend with mocked api or live send")
+    """Expected: script tags in the model reply stay literal text (textContent)."""
+    payload = '<img src=x onerror=window.__xss=1><script>alert(1)</script>'
+
+    def fulfill_config(route):
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "ai_label": "TestBot is an AI.",
+                    "opening_message": "Hi from e2e.",
+                    "logging_notice": "Logged.",
+                    "max_message_chars": 1000,
+                    "session_max_messages": 50,
+                    "contact_url": "",
+                }
+            ),
+        )
+
+    def fulfill_chat(route):
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "session_id": "e2e-xss",
+                    "status": "ok",
+                    "reply": payload,
+                    "session": {"messages_used": 1, "messages_max": 50},
+                }
+            ),
+        )
+
+    page = browser_context.new_page()
+    page.route("**/api/config", fulfill_config)
+    page.route("**/api/chat", fulfill_chat)
+    page.goto(f"{e2e_web_base}/")
+    page.fill("#message", "trigger mocked reply")
+    page.click("#send")
+    page.wait_for_selector("#messages .msg.bot p")
+    bot_text = page.locator("#messages .msg.bot p").inner_text()
+    assert "<script>" in bot_text
+    assert page.evaluate("() => window.__xss") is None
 
 
-def test_widget_on_test_origin(browser_context, e2e_web_base: str) -> None:
-    pytest.skip("could not test — host test page serving file:// cross-origin setup manual")
+def test_widget_mounts_on_host_page(browser_context, e2e_web_base: str) -> None:
+    """Expected: widget.js mounts from a same-origin host page."""
+    page = browser_context.new_page(viewport={"width": 1280, "height": 800})
+    page.goto(f"{e2e_web_base}/dev/widget-e2e.html")
+    page.wait_for_selector("[data-benbot-widget]")
+    assert page.evaluate("() => window.BenBotWidget && window.BenBotWidget.mounted === true")

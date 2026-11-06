@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt \
     && rm /tmp/requirements.txt
 
 COPY src/config.py /app/src/config.py
+COPY src/embeddings.py /app/src/embeddings.py
 COPY src/backup/ /app/src/backup/
 
 USER backup

@@ -47,7 +47,8 @@ echo "== e2e: ingest (examples) =="
 
 echo "== e2e: pytest =="
 set +e
-python -m pytest tests/e2e -m e2e --tb=short -q >"$report_dir/pytest.log" 2>&1
+python -m pytest tests/e2e -m "e2e and not e2e_failover and not e2e_browser" \
+  --tb=short -q >"$report_dir/pytest.log" 2>&1
 pytest_status=$?
 set -e
 cat "$report_dir/pytest.log"
@@ -61,7 +62,7 @@ cat "$report_dir/pytest.log"
   echo "| log | data/e2e/pytest.log |"
   echo "| timing | data/e2e/timing_http.json (if equivalence ran) |"
   echo
-  echo "See docs/web/e2e.md for optional groups (browser, failover, backup)."
+  echo "See docs/web/e2e.md for optional browser and failover groups."
 } >"$report_md"
 
 echo "wrote $report_md"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -10,16 +11,26 @@ from typing import Any
 import httpx
 
 ROOT = Path(__file__).resolve().parents[2]
-COMPOSE_E2E = (
-    "docker",
-    "compose",
-    "-f",
+_COMPOSE_FILES = (
     "docker-compose.yml",
-    "-f",
     "docker-compose.dev.yml",
-    "-f",
     "docker-compose.e2e.yml",
 )
+
+
+def compose_cmd(*extra_files: str) -> list[str]:
+    """Docker compose argv for the dev e2e stack (optional failover override)."""
+    files = list(_COMPOSE_FILES)
+    if os.environ.get("E2E_FAILOVER") == "1":
+        files.append("docker-compose.e2e-failover.yml")
+    files.extend(extra_files)
+    args = ["docker", "compose"]
+    for name in files:
+        args.extend(["-f", name])
+    return args
+
+
+COMPOSE_E2E = compose_cmd()
 _SETTING_LINE = re.compile(r"^[A-Z][A-Z0-9_]*=")
 
 
@@ -40,10 +51,48 @@ def strip_cli_ask_stdout(raw: str) -> str:
     return "\n".join(kept).strip()
 
 
+def compose_exec(service: str, *cmd: str, timeout: int = 300) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [*compose_cmd(), "exec", "-T", service, *cmd],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        timeout=timeout,
+        check=False,
+    )
+
+
+def ensure_minio_bucket() -> subprocess.CompletedProcess[str]:
+    """Create the dev backup bucket on Silo/MinIO when missing (e2e only)."""
+    code = (
+        "from botocore.exceptions import ClientError\n"
+        "from src.backup import spaces\n"
+        "from src.backup.settings import load_backup_settings\n"
+        "s = load_backup_settings()\n"
+        "c = spaces._client(s)\n"
+        "try:\n"
+        "    c.head_bucket(Bucket=s.spaces_bucket)\n"
+        "except ClientError:\n"
+        "    c.create_bucket(Bucket=s.spaces_bucket)\n"
+    )
+    return compose_exec("api", "python", "-c", code, timeout=60)
+
+
+def compose_run(service: str, *cmd: str, timeout: int = 300) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [*compose_cmd(), "run", "--rm", "-T", service, *cmd],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        timeout=timeout,
+        check=False,
+    )
+
+
 def run_ingest_via_api_exec() -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
-            *COMPOSE_E2E,
+            *compose_cmd(),
             "exec",
             "-T",
             "api",
@@ -62,7 +111,7 @@ def run_ingest_via_api_exec() -> subprocess.CompletedProcess[str]:
 def cli_ask_in_api_container(question: str) -> str:
     run = subprocess.run(
         [
-            *COMPOSE_E2E,
+            *compose_cmd(),
             "exec",
             "-T",
             "api",

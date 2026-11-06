@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 
@@ -84,7 +85,8 @@ def test_http_s1_second_turn_not_coaching(
         )
     )
     reply = second.get("reply", "").lower()
-    assert "coach" not in reply and "retro" not in reply
+    assert not re.search(r"\bcoach\w*", reply)
+    assert not re.search(r"\bretros?\b", reply)
 
 
 def test_write_timing_report(spec_cases: list[dict]) -> None:

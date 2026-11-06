@@ -12,16 +12,21 @@ BENBOT-32 exercises BenBot the way visitors do: **HTTP** through the dev web por
 
 This merges `docker-compose.yml`, `docker-compose.dev.yml`, and
 `docker-compose.e2e.yml` (shorter session/limit settings), builds images, runs
-ingest on `examples/`, runs `pytest tests/e2e`, writes `data/e2e/results.md`,
-and tears the stack down. Set `E2E_LEAVE_UP=1` to keep containers running after
-a failure.
+ingest on `examples/`, runs `pytest tests/e2e -m "e2e and not e2e_failover and not e2e_browser"`,
+writes `data/e2e/results.md`, and tears the stack down. Set `E2E_LEAVE_UP=1` to
+keep containers running after a failure.
+
+The default pytest selection includes **HTTP**, **limits**, **privacy**,
+**review**, **ingest**, **injection**, **equivalence**, and **MinIO backup**
+(`test_backup_restore.py`). It does **not** include failover or Playwright (see
+below).
 
 ### Prerequisites
 
 - Docker with compose v2
 - **Ollama on the host** (dev compose uses `host.docker.internal:11434`) **or**
-  working `LLM_SECONDARY_*` in `.env` for failover-only paths
-- Python dev deps: `pip install -e ".[dev,e2e]"`
+  working `LLM_SECONDARY_*` in `.env` for chat and backup tests
+- Python dev deps: `pip install -e ".[dev,e2e]"` (e2e extra only for Playwright)
 
 ## Run subsets manually
 
@@ -30,10 +35,13 @@ export RUN_E2E=1
 docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml up -d
 docker compose --profile tools run --rm ingest
 
+# Default e2e.sh selection (no browser, no failover)
+python -m pytest tests/e2e -m "e2e and not e2e_failover and not e2e_browser" -q
+
 # No LLM (health, headers, embedder port, verify_image)
 python -m pytest tests/e2e/test_stack_security.py tests/e2e/test_privacy.py -q
 
-# LLM scenarios
+# LLM scenarios only
 python -m pytest tests/e2e -m "e2e and e2e_llm" -q
 
 # Playwright (install browsers once: playwright install chromium)
@@ -45,13 +53,25 @@ python -m pytest tests/e2e/test_ui_browser.py -q
 | Flag / compose | Scenario |
 | --- | --- |
 | `docker-compose.e2e.yml` (default in `e2e.sh`) | Session cap, idle timeout, concurrency busy |
-| `E2E_FAILOVER=1` + `docker-compose.e2e-failover.yml` | Dead primary, live secondary |
-| `E2E_BACKUP=1` | MinIO backup while chatting (slow) |
-| Manual | Stop embedder / both LLMs for unavailable UI |
+| `E2E_FAILOVER=1` + `docker-compose.e2e-failover.yml` | Dead primary, live secondary; `test_failover_embedder.py` |
+| `web/dev/widget-e2e.html` | Same-origin widget host page for Playwright |
 
-Tests that are not automated document **`pytest.skip("could not test because …")`**
-in the module — see `test_failover_embedder.py`, `test_backup_restore.py`,
-`test_ui_browser.py`.
+**Manual only (no automated test):** stop **both** LLM connections or stop the
+embedder mid-suite — those disrupt the shared stack for other tests. Use
+`docs/deploy/verify.md` step 8 for production failover instead.
+
+### Failover pytest
+
+```bash
+export RUN_E2E=1 E2E_FAILOVER=1
+docker compose -f docker-compose.yml -f docker-compose.dev.yml \
+  -f docker-compose.e2e.yml -f docker-compose.e2e-failover.yml up -d
+# ingest as usual
+python -m pytest tests/e2e/test_failover_embedder.py -q
+```
+
+Expect a successful chat via secondary and at least one row from
+`python -m src.review failovers --since 24h` inside the api container.
 
 ## Reports
 

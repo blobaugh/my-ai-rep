@@ -6,6 +6,7 @@ import argparse
 import gzip
 import logging
 import shutil
+import sqlite3
 import sys
 import time
 from pathlib import Path
@@ -84,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 keys = run_backup(settings)
                 log.info("backup ok: %s", ", ".join(keys))
-            except (OSError, RuntimeError, ValueError) as exc:
+            except (OSError, RuntimeError, ValueError, sqlite3.Error) as exc:
                 log.error("backup failed: %s", exc)
             time.sleep(interval)
 

@@ -30,6 +30,14 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "e2e_browser: requires playwright (pip install benbot[e2e])",
     )
+    config.addinivalue_line(
+        "markers",
+        "e2e_failover: merge docker-compose.e2e-failover.yml and set E2E_FAILOVER=1",
+    )
+    config.addinivalue_line(
+        "markers",
+        "e2e_backup: MinIO backup round-trip (included in default e2e.sh)",
+    )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

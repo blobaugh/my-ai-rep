@@ -4,6 +4,8 @@
 #
 #    pip-compile --output-file=docker/api/requirements.txt --strip-extras pyproject.toml
 #
+boto3==1.40.61
+    # via benbot backup e2e (src.backup from api container)
 annotated-types==0.7.0
     # via pydantic
 anyio==4.12.1

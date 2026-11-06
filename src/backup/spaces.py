@@ -15,7 +15,7 @@ from src.backup.settings import BackupSettings
 
 logger = logging.getLogger(__name__)
 
-_PATH_STYLE_HOSTS = frozenset({"localhost", "127.0.0.1", "minio"})
+_PATH_STYLE_HOSTS = frozenset({"localhost", "127.0.0.1", "minio", "host.docker.internal"})
 
 
 def _addressing_style(settings: BackupSettings) -> str:

@@ -7,3 +7,10 @@ services:
       MAX_CONCURRENT_TURNS: 1
       BUSY_WAIT_SECONDS: 2
       MESSAGE_MAX_CHARS: 1000
+      SPACES_ENDPOINT: http://host.docker.internal:9000
+      SPACES_BUCKET: benbot-backups
+      SPACES_KEY: minioadmin
+      SPACES_SECRET: minioadmin
+      SPACES_PREFIX: dev
+      SPACES_REGION: us-east-1
+      SPACES_ADDRESSING_STYLE: path
