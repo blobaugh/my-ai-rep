@@ -18,12 +18,17 @@ ERROR_TEXT = "Something went wrong. Please try again in a moment."
 BUSY = "I'm busy right now. Please try again in a moment."
 
 
+def _human_label(settings: Settings) -> str:
+    return settings.human_name.strip() or "the person I represent"
+
+
 def daily_limit_message(settings: Settings) -> str:
     contact = settings.contact_url.strip()
     if contact:
+        human = _human_label(settings)
         return (
             "I've reached today's message limit. "
-            f"Please reach out to Ben directly: {contact}"
+            f"Please reach out to {human} directly: {contact}"
         )
     return (
         "I've reached today's message limit. Please try again tomorrow."
@@ -31,7 +36,7 @@ def daily_limit_message(settings: Settings) -> str:
 
 
 def public_config(settings: Settings) -> dict[str, object]:
-    human = settings.human_name.strip() or "the person I represent"
+    human = _human_label(settings)
     bot = settings.bot_name.strip() or "Bot"
     label = settings.ai_label or f"{bot} is an AI that speaks for {human}."
     opening = settings.opening_message or (
