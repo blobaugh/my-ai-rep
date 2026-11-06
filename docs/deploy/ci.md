@@ -18,9 +18,9 @@ droplet is **x86-64**. CI therefore builds with
 | Stage | Job | What it runs |
 | --- | --- | --- |
 | `lint` | `lint:ruff` | `scripts/ci/lint.sh` |
-| `test` | `test:pytest-js` | `scripts/ci/test.sh` (pytest + `node --test` on `web/`) |
+| `test` | `test:pytest-js` | `scripts/ci/test.sh` (pytest + `node --test` on `web/`; Node from Debian `nodejs` package, no remote install script) |
 | `scan` | `scan:public-safe` | `scripts/check_public_safe.sh` (+ `gitleaks` if installed on the runner) |
-| `build` | `build:images` | buildx push `api`, `web`, `embedder`, `backup` for `linux/amd64` |
+| `build` | `build:images` | one buildx push per Dockerfile; all tags (`:short-sha`, optional `:latest` and `:vX.Y.Z`) on the same build |
 | `verify-images` | `verify:images` | `scripts/ci/verify_images.sh` |
 
 **Build tool:** Docker Buildx with the **docker-in-docker (`dind`) service**. This
@@ -42,11 +42,11 @@ Images use the **product** layout, not the GitHub repo name `my-ai-rep`:
 On the droplet, set `BENBOT_IMAGE_PREFIX` in `.env` to that same prefix (without
 the `/api` suffix) so `docker-compose.yml` resolves the same names.
 
-Tags:
+Tags (one `docker buildx build --push` per image, multiple `-t` flags):
 
 - `:<short-sha>` — every pipeline on the default branch or a version tag
-- `:latest` — default branch only
-- `:vX.Y.Z` — when `CI_COMMIT_TAG` matches `vMAJOR.MINOR.PATCH`
+- `:latest` — default branch only (same build as `:short-sha`)
+- `:vX.Y.Z` — when `CI_COMMIT_TAG` matches `vMAJOR.MINOR.PATCH` (same build as `:short-sha`, no extra rebuild)
 
 Registry credentials in CI use GitLab’s **`CI_REGISTRY_USER` / `CI_REGISTRY_PASSWORD`**
 (job token or deploy token configured on the project). Do not echo credentials in

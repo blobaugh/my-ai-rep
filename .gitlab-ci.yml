@@ -38,9 +38,7 @@ test:pytest-js:
   image: python:3.9-slim-bookworm
   <<: *workflow_rules
   before_script:
-    - apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
-    - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    - apt-get install -y --no-install-recommends nodejs
+    - apt-get update && apt-get install -y --no-install-recommends nodejs
     - pip install --no-cache-dir -e ".[dev]"
   script:
     - ./scripts/ci/test.sh
@@ -78,29 +76,19 @@ scan:public-safe:
       build_push() {
         dockerfile=$1
         repo=$2
+        set -- -f "$dockerfile" -t "${repo}:${TAG_SHA}"
+        if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+          set -- "$@" -t "${repo}:latest"
+        fi
+        if [ -n "$TAG_VERSION" ]; then
+          set -- "$@" -t "${repo}:${TAG_VERSION}"
+        fi
         docker buildx build --platform "$platform" \
-          -f "$dockerfile" \
-          -t "${repo}:${TAG_SHA}" \
+          "$@" \
           --cache-from "type=registry,ref=${repo}:buildcache" \
           --cache-to "type=registry,ref=${repo}:buildcache,mode=max" \
           --push \
           .
-        if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
-          docker buildx build --platform "$platform" \
-            -f "$dockerfile" \
-            -t "${repo}:latest" \
-            --cache-from "type=registry,ref=${repo}:buildcache" \
-            --push \
-            .
-        fi
-        if [ -n "$TAG_VERSION" ]; then
-          docker buildx build --platform "$platform" \
-            -f "$dockerfile" \
-            -t "${repo}:${TAG_VERSION}" \
-            --cache-from "type=registry,ref=${repo}:buildcache" \
-            --push \
-            .
-        fi
       }
       build_push docker/api/Dockerfile "$IMAGE_API"
       build_push docker/web/Dockerfile "$IMAGE_WEB"
