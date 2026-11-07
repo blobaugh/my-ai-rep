@@ -274,7 +274,8 @@ Issues are tracked in this workspace’s tooling; decision records live under `d
 
 ## Docs index
 
-Full map: [`docs/README.md`](docs/README.md).
+Full map: [`docs/README.md`](docs/README.md). Tutorial:
+[`docs/tutorials/digitalocean-docker.md`](docs/tutorials/digitalocean-docker.md).
 
 ## Breaking changes (widget)
 

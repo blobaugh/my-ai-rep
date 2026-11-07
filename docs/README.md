@@ -6,6 +6,13 @@ Start here after the root [`README.md`](../README.md). Decision records under
 
 Operator-specific notes (example domains and CI layout) live under [`history/`](history/).
 
+## Tutorials
+
+| Doc | Topic |
+| --- | --- |
+| [tutorials/digitalocean-docker.md](tutorials/digitalocean-docker.md) | Clone, build, and run on an Ubuntu droplet; review turn categories |
+| [tutorials/README.md](tutorials/README.md) | Tutorial index |
+
 ## Web (visitor-facing system)
 
 | Doc | Topic |
