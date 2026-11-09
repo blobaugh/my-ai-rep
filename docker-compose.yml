@@ -20,7 +20,7 @@ services:
       - ${BENBOT_HOME:-.}/data:/app/data
       - ${BENBOT_HOME:-.}/content:/content:ro
     networks:
-      - proxy
+      - web
       - internal
     depends_on:
       embedder:
@@ -47,7 +47,7 @@ services:
     environment:
       DEV_PROXY_API: "0"
     networks:
-      - proxy
+      - web
     cap_drop:
       - ALL
     security_opt:
@@ -135,7 +135,7 @@ services:
         max-file: "3"
 
 networks:
-  proxy:
+  web:
     external: true
     name: ${PROXY_NETWORK:-proxy}
   internal:
