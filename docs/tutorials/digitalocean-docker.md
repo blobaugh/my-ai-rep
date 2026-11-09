@@ -146,7 +146,8 @@ the review tool to inspect them. Full command reference: [review.md](../web/revi
 While containers are up:
 
 ```bash
-docker compose run --rm api python -m src.review stats
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml run --rm --no-deps api \
+  python -m src.review stats
 ```
 
 From the host (same `DB_PATH` as the api container mount):
@@ -160,34 +161,36 @@ python -m src.review stats
 **Content gaps (`no_answer`)** — find questions the bot could not answer from markdown:
 
 ```bash
-docker compose run --rm api python -m src.review gaps
-docker compose run --rm api python -m src.review list --category no_answer --limit 20
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml run --rm --no-deps api \
+  python -m src.review gaps
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml run --rm --no-deps api \
+  python -m src.review list --category no_answer --limit 20
 ```
 
 **Grounded replies:**
 
 ```bash
-docker compose run --rm api python -m src.review list --category answered --limit 20
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml run --rm --no-deps api python -m src.review list --category answered --limit 20
 ```
 
 **Off-topic:**
 
 ```bash
-docker compose run --rm api python -m src.review offtopic --limit 20
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml run --rm --no-deps api python -m src.review offtopic --limit 20
 ```
 
 **Guards** (`guard_identity`, `guard_override`, plus injection flag):
 
 ```bash
-docker compose run --rm api python -m src.review suspect --limit 20
-docker compose run --rm api python -m src.review list --category guard_identity --limit 10
-docker compose run --rm api python -m src.review list --category guard_override --limit 10
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml run --rm --no-deps api python -m src.review suspect --limit 20
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml run --rm --no-deps api python -m src.review list --category guard_identity --limit 10
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml run --rm --no-deps api python -m src.review list --category guard_override --limit 10
 ```
 
 **One session in full context** (category, flags, retrieval, repair):
 
 ```bash
-docker compose run --rm api python -m src.review show <session-id>
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml run --rm --no-deps api python -m src.review show <session-id>
 ```
 
 Use the `session_id` from a chat JSON response or from `list` output.
@@ -195,7 +198,7 @@ Use the `session_id` from a chat JSON response or from `list` output.
 **Export** for spreadsheets or notes:
 
 ```bash
-docker compose run --rm api python -m src.review list --category no_answer \
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml run --rm --no-deps api python -m src.review list --category no_answer \
   --out /app/data/gaps.csv --format csv
 ```
 

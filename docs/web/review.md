@@ -7,7 +7,16 @@ without exposing an admin web UI.
 Run inside the api image:
 
 ```bash
-docker compose run --rm api python -m src.review gaps
+# Droplet / git checkout (built images): same compose merge as checkout-up.sh.
+# --no-deps avoids starting embedder; review only reads SQLite on the data mount.
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml run --rm --no-deps api \
+  python -m src.review gaps
+```
+
+Production (pre-pulled registry images, no checkout overlay):
+
+```bash
+docker compose run --rm --no-deps api python -m src.review gaps
 ```
 
 Locally:

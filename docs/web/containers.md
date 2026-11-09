@@ -129,7 +129,8 @@ chat has created the database.
 ## Review (one-off)
 
 ```bash
-docker compose run --rm api python -m src.review gaps
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml run --rm --no-deps api \
+  python -m src.review gaps
 ```
 
 See `docs/web/review.md`.
