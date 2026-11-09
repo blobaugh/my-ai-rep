@@ -11,17 +11,17 @@ flowchart TB
     data[(data/ volume)]
     content[(content/ or examples/)]
   end
-  subgraph proxy_net [network: proxy]
-    web[benbot_web]
+  subgraph proxy_net [network: web]
+    web_svc[benbot_web]
     api[benbot_api]
   end
   subgraph internal_net [network: internal]
     api
     emb[benbot_embedder]
   end
-  NPM -->|"/"| web
+  NPM -->|"/"| web_svc
   NPM -->|"/api"| api
-  web -->|DEV_PROXY_API only| api
+  web_svc -->|DEV_PROXY_API only| api
   api --> emb
   api --> data
   api --> content
@@ -32,8 +32,8 @@ flowchart TB
 
 | Service | Container | Image | Networks | Host ports (prod) | Host ports (dev) |
 |---|---|---|---|---|---|
-| api | benbot_api | `${BENBOT_IMAGE_PREFIX}/api:${BENBOT_TAG}` | proxy, internal | none | 127.0.0.1:8000 |
-| web | benbot_web | `${BENBOT_IMAGE_PREFIX}/web:${BENBOT_TAG}` | proxy | none | 127.0.0.1:8080 |
+| api | benbot_api | `${BENBOT_IMAGE_PREFIX}/api:${BENBOT_TAG}` | web, internal | none | 127.0.0.1:8000 |
+| web | benbot_web | `${BENBOT_IMAGE_PREFIX}/web:${BENBOT_TAG}` | web | none | 127.0.0.1:8080 |
 | embedder | benbot_embedder | `${BENBOT_IMAGE_PREFIX}/embedder:${BENBOT_TAG}` | internal only | none | none |
 
 Production services set `platform: linux/amd64`. Dev builds use the local architecture.
@@ -56,7 +56,7 @@ Inside the api container, `DB_PATH=/app/data/benbot.sqlite` and `CONTENT_DIR=/co
 | `BENBOT_HOME` | compose | Host directory for `data/` and content mounts (default `.`) |
 | `BENBOT_IMAGE_PREFIX` | compose | Registry path prefix for pulled images |
 | `BENBOT_TAG` | compose | Image tag to pull (pin to roll back) |
-| `PROXY_NETWORK` | compose | External Docker network name NPM uses |
+| `PROXY_NETWORK` | compose | External Docker network name (default `web`) |
 | `DEV_PROXY_API` | web | `1` proxies `/api` to the api service (dev only) |
 | `API_HOST` / `API_PORT` | api | Bind address ( `0.0.0.0:8000` in containers) |
 | `LLM_BASE_URL` | api | Chat model (dev default: Mac Ollama via `host.docker.internal`) |

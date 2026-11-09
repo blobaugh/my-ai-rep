@@ -137,7 +137,7 @@ services:
 networks:
   web:
     external: true
-    name: ${PROXY_NETWORK:-proxy}
+    name: ${PROXY_NETWORK:-web}
   internal:
     internal: true
 

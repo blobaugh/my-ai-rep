@@ -54,7 +54,8 @@ services:
     profiles: ["optional"]
 
 networks:
-  # Base compose key is `web` (external name defaults to "proxy" for NPM).
+  # Base compose network key is `web`; production uses external Docker network `web`.
+  # Checkout creates a project network so you do not need that external network yet.
   web:
     external: false
     name: benbot_web
