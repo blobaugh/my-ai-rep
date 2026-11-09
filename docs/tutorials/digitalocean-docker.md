@@ -16,8 +16,8 @@ Optional: S3-compatible object storage for backups — see [backup-restore.md](.
 
 From the repo root ([architecture.md](../web/architecture.md)):
 
-- **`benbot_web`** — static chat UI, `/embed`, `widget.js` (port **8080** in the dev merge file).
-- **`benbot_api`** — FastAPI on `/api/*` (port **8000** when published).
+- **`benbot_web`** — static chat UI, `/embed`, `widget.js` (listens on **8080** inside the container).
+- **`benbot_api`** — FastAPI on `/api/*` (listens on **8000** inside the container).
 - **`benbot_embedder`** — embeddings for ingest and chat retrieval (internal network).
 - **`ingest`** — one-shot index build (`--profile tools`).
 - Optional **`benbot_backup`** when you enable Spaces env vars (not required for the first run).
@@ -76,27 +76,34 @@ scripts/checkout-up.sh -d
 docker compose -f docker-compose.yml -f docker-compose.checkout.yml --profile tools run --rm ingest
 ```
 
-`docker-compose.checkout.yml` builds **linux/amd64** images from the checkout, publishes
-`127.0.0.1:8080` / `:8000`, and mounts `examples/` as `/content`. For private markdown,
-replace the volume in a local override or copy files into `content/` and adjust mounts
-per [content.md](../deploy/content.md).
+`docker-compose.checkout.yml` builds **linux/amd64** images from the checkout, **does not
+publish host ports** (NPM reaches containers on the external **`web`** network), and mounts
+`examples/` as `/content`. Ensure that network exists (`docker network ls`; create it if
+your proxy stack has not yet). Set `PROXY_NETWORK` in `.env` when the name differs. For
+private markdown, copy files into `content/` and adjust mounts per [content.md](../deploy/content.md).
 
 For your own markdown later, add files under `content/` and adjust mounts per
 [content.md](../deploy/content.md).
 
 ## 4. Smoke checks
 
-From the droplet (dev merge publishes localhost ports):
+Through the hostname you configured in NPM (same paths as production):
 
 ```bash
-curl -sS http://127.0.0.1:8080/api/health
-curl -sS http://127.0.0.1:8000/api/health
+curl -sS https://YOUR_HOST/api/health
 ```
 
-Chat (see [api.md](../web/api.md)):
+Or from the droplet on the Docker **`web`** network (no host port publish):
 
 ```bash
-curl -sS -X POST http://127.0.0.1:8080/api/chat \
+docker run --rm --network web curlimages/curl:latest -sS http://benbot_api:8000/api/health
+docker run --rm --network web curlimages/curl:latest -sS http://benbot_web:8080/
+```
+
+Chat (see [api.md](../web/api.md); use your public `/api` URL or `benbot_api:8000` on `web`):
+
+```bash
+curl -sS -X POST https://YOUR_HOST/api/chat \
   -H 'content-type: application/json' \
   -d '{"message":"Who are you?"}'
 ```
@@ -104,8 +111,7 @@ curl -sS -X POST http://127.0.0.1:8080/api/chat \
 The JSON body includes `status`, `reply`, `session_id`, and `session` usage. It does
 **not** include the pipeline **category** (next section).
 
-Open the UI in a browser using your own access path to port **8080** (SSH tunnel, firewall
-rule, or proxy you already manage — not covered here).
+Open the UI in a browser at the hostname NPM serves for `benbot_web`.
 
 ## 5. Optional: widget
 
@@ -210,6 +216,7 @@ The file lands under `data/` on the host because of the volume mount.
 | `unavailable` / 503 chat | `.env` LLM URL and key; api logs: `docker compose logs api` |
 | Health 503 | Index missing — run ingest; embedder health: `docker compose ps` |
 | Build fails on `platform` | Checkout file targets **amd64**; arm64 hosts need a forked platform line |
+| `network web declared as external, but could not be found` | Create the network your proxy uses, or set `PROXY_NETWORK` in `.env` |
 | Review: database not found | `DB_PATH` and host `data/` mount match the running api container |
 
 More rows: [troubleshooting.md](../deploy/troubleshooting.md).

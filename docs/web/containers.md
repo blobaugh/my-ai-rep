@@ -77,15 +77,15 @@ Local dev (Mac, may use host Ollama via `docker-compose.dev.yml`):
 scripts/dev-up.sh
 ```
 
-Checkout / droplet (build amd64 from git, settings from `.env` only):
+Checkout / droplet (build amd64 from git, settings from `.env` only, same networks as prod):
 
 ```bash
 scripts/checkout-up.sh -d
 ```
 
-Uses `docker-compose.yml` + `docker-compose.checkout.yml`.
+Uses `docker-compose.yml` + `docker-compose.checkout.yml`. **No host ports** — NPM (or another proxy on the external `web` network) reaches `benbot_web:8080` and `benbot_api:8000`.
 
-Open http://127.0.0.1:8080/ . The chat model comes from `.env`; the embedder container handles vectors.
+Open the chat through your proxy hostname. The chat model comes from `.env`; the embedder container handles vectors.
 
 Build amd64 images for the droplet:
 

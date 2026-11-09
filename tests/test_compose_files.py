@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PROD = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 DEV = (ROOT / "docker-compose.dev.yml").read_text(encoding="utf-8")
+CHECKOUT = (ROOT / "docker-compose.checkout.yml").read_text(encoding="utf-8")
 DOCKERIGNORE = (ROOT / ".dockerignore").read_text(encoding="utf-8")
 
 
@@ -24,6 +25,15 @@ def test_production_compose_is_pull_only() -> None:
     assert "platform: linux/amd64" in PROD
     assert "internal: true" in PROD
     assert "DEV_PROXY_API: \"0\"" in PROD
+
+
+def test_checkout_overlay_builds_without_host_ports() -> None:
+    assert CHECKOUT.count("build:") == 4
+    assert "127.0.0.1:" not in CHECKOUT
+    assert "DEV_PROXY_API" not in CHECKOUT
+    assert "host.docker.internal" not in CHECKOUT
+    assert "examples:/content:ro" in CHECKOUT
+    assert "external: false" not in CHECKOUT
 
 
 def test_dev_override_builds_and_publishes_localhost_ports() -> None:

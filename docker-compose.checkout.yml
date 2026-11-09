@@ -1,5 +1,8 @@
-# Build and run from a git checkout (e.g. Ubuntu amd64 droplet). Chat settings come from
-# .env only — no host.docker.internal or extra LLM environment here.
+# Build images from a git checkout on the droplet (linux/amd64). Same edge layout as
+# production: no host ports; web + api join external PROXY_NETWORK (default `web`).
+# Chat LLM settings come from .env only.
+#
+# Prerequisite: docker network create web   # or whatever PROXY_NETWORK is
 #
 #   export BENBOT_HOME="$PWD"
 #   docker compose -f docker-compose.yml -f docker-compose.checkout.yml up --build -d
@@ -14,8 +17,6 @@ services:
       dockerfile: docker/api/Dockerfile
     image: benbot/api:checkout
     platform: linux/amd64
-    ports:
-      - "127.0.0.1:8000:8000"
     volumes:
       - ${BENBOT_HOME:-.}/data:/app/data
       - ${BENBOT_HOME:-.}/examples:/content:ro
@@ -26,13 +27,6 @@ services:
       dockerfile: docker/web/Dockerfile
     image: benbot/web:checkout
     platform: linux/amd64
-    ports:
-      - "127.0.0.1:8080:8080"
-    environment:
-      DEV_PROXY_API: "1"
-    depends_on:
-      api:
-        condition: service_healthy
 
   embedder:
     build:
@@ -52,10 +46,3 @@ services:
 
   backup:
     profiles: ["optional"]
-
-networks:
-  # Base compose network key is `web`; production uses external Docker network `web`.
-  # Checkout creates a project network so you do not need that external network yet.
-  web:
-    external: false
-    name: benbot_web
