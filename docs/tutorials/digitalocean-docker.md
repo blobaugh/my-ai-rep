@@ -58,30 +58,7 @@ HUMAN_NAME=
 
 Other keys are documented in [`.env.example`](../../.env.example) and grouped in the
 root [README.md](../../README.md#configuration-reference). `src/config.py` is the only
-reader.
-
-**Dev compose note:** `docker-compose.dev.yml` sets `LLM_BASE_URL` to
-`http://host.docker.internal:11434/v1` for Mac laptops. On a droplet, override that
-with a small merge file Compose loads automatically:
-
-`docker-compose.override.yml` (create beside `docker-compose.yml`, **not** committed if it
-contains secrets):
-
-```yaml
-services:
-  api:
-    platform: linux/amd64
-    environment:
-      LLM_BASE_URL: ${LLM_BASE_URL}
-      LLM_API_KEY: ${LLM_API_KEY}
-      LLM_MODEL: ${LLM_MODEL}
-  web:
-    platform: linux/amd64
-  embedder:
-    platform: linux/amd64
-```
-
-On **arm64** droplets, drop the `platform: linux/amd64` lines or set `linux/arm64`.
+reader. **`docker-compose.checkout.yml` does not set LLM variables** — only `.env` does.
 
 ## 3. Content and ingest
 
@@ -95,9 +72,14 @@ mkdir -p data
 Build and start the stack, then build the index:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
-docker compose --profile tools run --rm ingest
+scripts/checkout-up.sh -d
+docker compose -f docker-compose.yml -f docker-compose.checkout.yml --profile tools run --rm ingest
 ```
+
+`docker-compose.checkout.yml` builds **linux/amd64** images from the checkout, publishes
+`127.0.0.1:8080` / `:8000`, and mounts `examples/` as `/content`. For private markdown,
+replace the volume in a local override or copy files into `content/` and adjust mounts
+per [content.md](../deploy/content.md).
 
 For your own markdown later, add files under `content/` and adjust mounts per
 [content.md](../deploy/content.md).
@@ -227,7 +209,7 @@ The file lands under `data/` on the host because of the volume mount.
 | --- | --- |
 | `unavailable` / 503 chat | `.env` LLM URL and key; api logs: `docker compose logs api` |
 | Health 503 | Index missing — run ingest; embedder health: `docker compose ps` |
-| Build fails on `platform` | Use `docker-compose.override.yml` platform lines for your CPU arch |
+| Build fails on `platform` | Checkout file targets **amd64**; arm64 hosts need a forked platform line |
 | Review: database not found | `DB_PATH` and host `data/` mount match the running api container |
 
 More rows: [troubleshooting.md](../deploy/troubleshooting.md).

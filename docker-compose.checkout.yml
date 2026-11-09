@@ -1,0 +1,58 @@
+# Build and run from a git checkout (e.g. Ubuntu amd64 droplet). Chat settings come from
+# .env only — no host.docker.internal or extra LLM environment here.
+#
+#   export BENBOT_HOME="$PWD"
+#   docker compose -f docker-compose.yml -f docker-compose.checkout.yml up --build -d
+#   docker compose -f docker-compose.yml -f docker-compose.checkout.yml --profile tools run --rm ingest
+#
+# Or: scripts/checkout-up.sh -d
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    image: benbot/api:checkout
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ${BENBOT_HOME:-.}/data:/app/data
+      - ${BENBOT_HOME:-.}/examples:/content:ro
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+    image: benbot/web:checkout
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      DEV_PROXY_API: "1"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  embedder:
+    build:
+      context: .
+      dockerfile: docker/embedder/Dockerfile
+    image: benbot/embedder:checkout
+    platform: linux/amd64
+
+  ingest:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    image: benbot/api:checkout
+    volumes:
+      - ${BENBOT_HOME:-.}/data:/app/data
+      - ${BENBOT_HOME:-.}/examples:/content:ro
+
+  backup:
+    profiles: ["optional"]
+
+networks:
+  proxy:
+    external: false

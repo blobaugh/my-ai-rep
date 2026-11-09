@@ -71,13 +71,21 @@ docker compose pull
 docker compose up -d
 ```
 
-Local dev:
+Local dev (Mac, may use host Ollama via `docker-compose.dev.yml`):
 
 ```bash
 scripts/dev-up.sh
 ```
 
-Open http://127.0.0.1:8080/ . The chat uses the Mac's Ollama for replies and the embedder container for vectors.
+Checkout / droplet (build amd64 from git, settings from `.env` only):
+
+```bash
+scripts/checkout-up.sh -d
+```
+
+Uses `docker-compose.yml` + `docker-compose.checkout.yml`.
+
+Open http://127.0.0.1:8080/ . The chat model comes from `.env`; the embedder container handles vectors.
 
 Build amd64 images for the droplet:
 
