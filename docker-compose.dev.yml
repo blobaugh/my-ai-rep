@@ -95,8 +95,9 @@ services:
         condition: service_started
 
 networks:
-  proxy:
+  web:
     external: false
+    name: benbot_web
 
 volumes:
   minio_data:

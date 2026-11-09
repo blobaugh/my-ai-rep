@@ -54,5 +54,7 @@ services:
     profiles: ["optional"]
 
 networks:
-  proxy:
+  # Base compose key is `web` (external name defaults to "proxy" for NPM).
+  web:
     external: false
+    name: benbot_web
