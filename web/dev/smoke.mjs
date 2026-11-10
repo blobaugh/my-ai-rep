@@ -259,6 +259,39 @@ async function main() {
     await sendChat(cdp, page.sessionId, "!down");
     const kept = await evaluate(cdp, page.sessionId, `document.querySelector("#message").value`);
     assert(kept === "!down", `draft not kept: ${kept}`);
+    const botTexts = `[...document.querySelectorAll(".msg.bot p")].map((node) => node.textContent)`;
+    const downTexts = await evaluate(cdp, page.sessionId, botTexts);
+    assert(
+      downTexts.filter((text) => text.includes("afterburners")).length === 1,
+      `expected one afterburners bubble: ${JSON.stringify(downTexts)}`,
+    );
+    assert(
+      downTexts[downTexts.length - 1].includes("not available"),
+      `last reply after both attempts: ${downTexts[downTexts.length - 1]}`,
+    );
+
+    await evaluate(cdp, page.sessionId, `document.querySelector("#new-chat").click()`);
+    await waitUntil(
+      cdp,
+      page.sessionId,
+      `document.querySelectorAll(".msg.visitor").length === 0`,
+    );
+    await sendChat(cdp, page.sessionId, "!warm");
+    const warmTexts = await evaluate(cdp, page.sessionId, botTexts);
+    assert(
+      warmTexts.some((text) => text.includes("afterburners")),
+      `no afterburners bubble: ${JSON.stringify(warmTexts)}`,
+    );
+    assert(
+      warmTexts[warmTexts.length - 1] === "Warmed up and ready.",
+      `retry did not answer: ${warmTexts[warmTexts.length - 1]}`,
+    );
+    const warmVisitors = await evaluate(
+      cdp,
+      page.sessionId,
+      `document.querySelectorAll(".msg.visitor").length`,
+    );
+    assert(warmVisitors === 1, `visitor bubble repeated: ${warmVisitors}`);
 
     await sendChat(cdp, page.sessionId, "!full");
     const restart = await evaluate(

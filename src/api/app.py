@@ -226,6 +226,7 @@ def create_app(
                 session_id,
                 _usage(used, settings.session_max_messages),
                 category=category,
+                connection=_connection_name(answer.debug.get("connection_used")),
             )
         finally:
             slots.release()
@@ -354,16 +355,22 @@ def _chat_response(
     usage: dict[str, int] | None,
     *,
     category: str | None = None,
+    connection: str | None = None,
 ) -> JSONResponse:
-    logger.info("%s", _log_line(request_id, status, http_status, category))
+    logger.info("%s", _log_line(request_id, status, http_status, category, connection))
     return _body(
         status,
         reply,
         session_id,
         usage,
         http_status,
+        connection=connection,
         extra_headers={"Cache-Control": "no-store"},
     )
+
+
+def _connection_name(value: object) -> str | None:
+    return value if value in ("primary", "secondary") else None
 
 
 def _body(
@@ -373,6 +380,7 @@ def _body(
     usage: dict[str, int] | None,
     http_status: int,
     *,
+    connection: str | None = None,
     extra_headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     headers = dict(extra_headers or {})
@@ -382,6 +390,7 @@ def _body(
             "reply": reply,
             "status": status,
             "session": usage,
+            "connection": connection,
         },
         status_code=http_status,
         headers=headers,
@@ -393,6 +402,7 @@ def _log_line(
     status: str,
     http_status: int,
     category: str | None = None,
+    connection: str | None = None,
 ) -> str:
     payload: dict[str, object] = {
         "request_id": request_id,
@@ -401,4 +411,6 @@ def _log_line(
     }
     if category:
         payload["category"] = category
+    if connection:
+        payload["connection"] = connection
     return json.dumps(payload, ensure_ascii=True)

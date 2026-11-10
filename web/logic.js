@@ -4,6 +4,7 @@ export const SESSION_KEY = "benbot.sessionId";
 
 export const NETWORK_MESSAGE =
   "The message could not be sent. Please try again in a moment.";
+export const WARMING_UP_MESSAGE = "Firing up the afterburners. One moment...";
 export const EMPTY_MESSAGE = "Please enter a message.";
 export const TOO_LONG_MESSAGE = "That message is too long. Please shorten it.";
 export const NEW_CONVERSATION = "A new conversation started.";
@@ -81,6 +82,11 @@ export function interpretChat(sentSessionId, httpStatus, body) {
     keepDraft: KEEP_DRAFT.has(kind) || httpStatus === 0,
     restart: kind === "session_full",
   };
+}
+
+/** The model did not answer (cold start). The page says so and sends the message once more. */
+export function shouldWarmRetry(outcome) {
+  return Boolean(outcome) && outcome.kind === "unavailable";
 }
 
 export function createSessionStore(storage) {

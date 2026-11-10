@@ -23,9 +23,12 @@ curl -s -X POST localhost:8000/api/chat \
   "session_id": "server-generated",
   "reply": "...",
   "status": "ok",
-  "session": {"messages_used": 1, "messages_max": 50}
+  "session": {"messages_used": 1, "messages_max": 50},
+  "connection": "primary"
 }
 ```
+
+`connection` is `primary` or `secondary`, the model connection that wrote the reply. It is `null` when no model answered (every status except `ok`, and an `ok` turn whose model call failed). The same value is added to the INFO log line for the request as `"connection"`, and is stored on the turn as `connection_used`. It names no host, model, or key.
 
 A second message uses the returned id:
 
@@ -47,7 +50,7 @@ An unknown or expired id is not an error. The response carries a new server id. 
 | busy | 429 | `MAX_CONCURRENT_TURNS` slots are full (`src/api/limits.py`) |
 | daily_limit | 429 | UTC-day cap reached (`DAILY_MESSAGE_CAP`; persisted in SQLite) |
 
-`session_full` asks the visitor to start a new chat. `unavailable` says the model is not available right now. Extra JSON fields, including any `history` field, are ignored.
+`session_full` asks the visitor to start a new chat. `unavailable` says the model is not available right now. The chat page treats a first `unavailable` as a possible cold model: it shows "Firing up the afterburners" and sends the same message once more with the session id from that response. A second `unavailable` is shown as is. The API does not retry by itself, and each attempt is its own turn (it counts toward the session and daily caps). Extra JSON fields, including any `history` field, are ignored.
 
 ## GET /api/config
 

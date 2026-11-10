@@ -4,6 +4,7 @@ Magic messages, matched after the same control-character strip as the API:
 
 - !full  session_full 409
 - !down  unavailable 503
+- !warm  unavailable 503 on the first send of a session, then ok on the page's retry
 - !busy  busy 429
 - !limit daily_limit 429
 - !error error 500
@@ -24,6 +25,7 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 XSS_REPLY = "<img src=x onerror=alert(1)><script>alert(1)</script>"
+WARMING: set[str] = set()
 
 CONFIG: dict[str, Any] = {
     "ai_label": "Bot is an AI that speaks for the person I represent.",
@@ -64,6 +66,13 @@ def chat_result(message: str, session_id: str | None) -> tuple[int, dict[str, An
         return _body(409, "session_full", "This chat is full. Start a new chat to keep going.", current or "full-session")
     if cleaned == "!down":
         return _body(503, "unavailable", "The model is not available right now. Please try again in a moment.", current or "down-session")
+    if cleaned == "!warm":
+        sid = current or "warm-session"
+        if sid not in WARMING:
+            WARMING.add(sid)
+            return _body(503, "unavailable", "The model is not available right now. Please try again in a moment.", sid)
+        WARMING.discard(sid)
+        return _body(200, "ok", "Warmed up and ready.", sid)
     if cleaned == "!busy":
         return _body(429, "busy", "The assistant is busy right now. Please try again in a moment.", current or "busy-session")
     if cleaned == "!limit":
@@ -96,6 +105,7 @@ def _body(
         "reply": reply,
         "status": status,
         "session": usage,
+        "connection": "primary" if status == "ok" else None,
     }
 
 

@@ -26,7 +26,7 @@ The sentences proposed on the issue, which name a person and a hobby, stay unset
 
 ## Errors
 
-Visitors get one JSON shape: `session_id`, `reply`, `status`, `session`. They do not get stack traces, paths, or settings. The log line is a JSON object with the request id, status, and HTTP code. It does not include the visitor text, an address, or a secret.
+Visitors get one JSON shape: `session_id`, `reply`, `status`, `session`, `connection`. `connection` is `primary`, `secondary`, or `null`, so the operator can see from the browser which model connection answered. They do not get stack traces, paths, or settings. The log line is a JSON object with the request id, status, HTTP code, and when a model answered, the category and the same `connection`. It does not include the visitor text, an address, or a secret.
 
 `busy` and `daily_limit` are returned by `src/api/limits.py` (BENBOT-28). Concurrency is in-process; the daily cap is stored in SQLite and survives restarts.
 

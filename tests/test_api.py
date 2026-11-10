@@ -122,6 +122,60 @@ def test_new_session_continue_and_stored_reply(tmp_path) -> None:
     assert stored.retrieved[0]["id"] == "qa#intro"
 
 
+def test_connection_in_json_and_log_line(tmp_path, caplog) -> None:
+    caplog.set_level("INFO", logger="src.api")
+
+    def secondary(question, history, settings):
+        answer = _answer(question, history, settings)
+        answer.debug["connection_used"] = "secondary"
+        return answer
+
+    def silent(question, history, settings):
+        answer = _answer(question, history, settings)
+        answer.debug["connection_used"] = None
+        return answer
+
+    def log_lines() -> list[dict]:
+        return [
+            json.loads(record.getMessage())
+            for record in caplog.records
+            if record.name == "src.api" and "request_id" in record.getMessage()
+        ]
+
+    app, _store, _seen = _app(tmp_path)
+    body = TestClient(app).post("/api/chat", json={"message": "Who?"}).json()
+    assert body["connection"] == "primary"
+    assert log_lines()[-1]["connection"] == "primary"
+
+    (tmp_path / "b").mkdir()
+    app, _store, _seen = _app(tmp_path / "b", answer_fn=secondary)
+    body = TestClient(app).post("/api/chat", json={"message": "Who?"}).json()
+    assert body["connection"] == "secondary"
+    assert log_lines()[-1]["connection"] == "secondary"
+
+    (tmp_path / "c").mkdir()
+    app, _store, _seen = _app(tmp_path / "c", answer_fn=silent)
+    body = TestClient(app).post("/api/chat", json={"message": "Who?"}).json()
+    assert body["connection"] is None
+    assert "connection" not in log_lines()[-1]
+
+
+def test_connection_is_null_when_no_model_answered(tmp_path, caplog) -> None:
+    caplog.set_level("INFO", logger="src.api")
+
+    def down(question, history, settings):
+        raise ModelUnavailable("down")
+
+    app, _store, _seen = _app(tmp_path, answer_fn=down)
+    client = TestClient(app)
+    response = client.post("/api/chat", json={"message": "Who?"})
+    assert response.status_code == 503
+    assert response.json()["connection"] is None
+    invalid = client.post("/api/chat", json={"message": ""})
+    assert invalid.status_code == 400
+    assert invalid.json()["connection"] is None
+
+
 def test_unknown_and_expired_ids_mint_a_new_session(tmp_path) -> None:
     clock = {"now": __import__("datetime").datetime(2026, 1, 1, tzinfo=__import__("datetime").timezone.utc)}
     settings = _settings()

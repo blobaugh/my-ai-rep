@@ -1,9 +1,11 @@
 import {
   NEW_CONVERSATION,
+  WARMING_UP_MESSAGE,
   createSessionStore,
   fillText,
   interpretChat,
   safeHttpUrl,
+  shouldWarmRetry,
   validateDraft,
 } from "./logic.js";
 
@@ -111,37 +113,53 @@ async function loadConfig() {
   showSession(sessions.load());
 }
 
-async function sendMessage(text) {
-  const sentId = sessions.load();
+async function postChat(text, sessionId) {
   const payload = { message: text };
-  if (sentId) payload.session_id = sentId;
-  waiting = true;
-  send.disabled = true;
-  setTyping(true);
-  setStatus("");
-  let httpStatus = 0;
-  let body = null;
+  if (sessionId) payload.session_id = sessionId;
   try {
     const response = await fetch(api("/api/chat"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     });
-    httpStatus = response.status;
-    body = await response.json();
+    return { httpStatus: response.status, body: await response.json() };
   } catch {
-    httpStatus = 0;
-    body = null;
+    return { httpStatus: 0, body: null };
   }
-  const outcome = interpretChat(sentId, httpStatus, body);
+}
+
+function rememberSession(outcome) {
+  if (!outcome.sessionId) return;
+  sessions.save(outcome.sessionId);
+  showSession(outcome.sessionId);
+}
+
+async function sendMessage(text) {
+  let sentId = sessions.load();
+  waiting = true;
+  send.disabled = true;
+  setTyping(true);
+  setStatus("");
+  let result = await postChat(text, sentId);
+  let outcome = interpretChat(sentId, result.httpStatus, result.body);
+  let visitorShown = false;
+  if (shouldWarmRetry(outcome)) {
+    setTyping(false);
+    if (outcome.replaced) addNote(NEW_CONVERSATION);
+    addMessage("visitor", text, false);
+    visitorShown = true;
+    addMessage("bot", WARMING_UP_MESSAGE, false);
+    rememberSession(outcome);
+    sentId = outcome.sessionId || sentId;
+    setTyping(true);
+    result = await postChat(text, sentId);
+    outcome = interpretChat(sentId, result.httpStatus, result.body);
+  }
   setTyping(false);
   if (outcome.replaced) addNote(NEW_CONVERSATION);
-  addMessage("visitor", text, false);
+  if (!visitorShown) addMessage("visitor", text, false);
   addMessage("bot", outcome.reply, outcome.restart);
-  if (outcome.sessionId) {
-    sessions.save(outcome.sessionId);
-    showSession(outcome.sessionId);
-  }
+  rememberSession(outcome);
   if (outcome.keepDraft) box.value = text;
   else box.value = "";
   waiting = false;

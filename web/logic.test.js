@@ -8,10 +8,12 @@ import {
   NEW_CONVERSATION,
   SESSION_KEY,
   TOO_LONG_MESSAGE,
+  WARMING_UP_MESSAGE,
   createSessionStore,
   fillText,
   interpretChat,
   safeHttpUrl,
+  shouldWarmRetry,
   stripControls,
   validateDraft,
 } from "./logic.js";
@@ -74,6 +76,22 @@ test("interpretChat maps each API status", () => {
   assert.equal(down.reply, NETWORK_MESSAGE);
   assert.equal(down.keepDraft, true);
   assert.equal(down.sessionId, "s");
+});
+
+test("only an unavailable model earns the warm-up retry", () => {
+  assert.equal(WARMING_UP_MESSAGE.includes("afterburners"), true);
+  const unavailable = interpretChat("s", 503, {
+    status: "unavailable",
+    reply: "not available",
+    session_id: "s",
+  });
+  assert.equal(shouldWarmRetry(unavailable), true);
+  for (const status of ["ok", "busy", "daily_limit", "error", "invalid", "session_full"]) {
+    const row = interpretChat("s", 200, { status, reply: status, session_id: "s" });
+    assert.equal(shouldWarmRetry(row), false, status);
+  }
+  assert.equal(shouldWarmRetry(interpretChat("s", 0, null)), false);
+  assert.equal(shouldWarmRetry(null), false);
 });
 
 test("session store uses one key and survives a blocked storage", () => {
