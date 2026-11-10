@@ -33,6 +33,13 @@ Until ingest finishes, the running API keeps serving the **previous** index. Edi
 
 ## Run ingest
 
+On the host, ensure the data volume is writable by the api user (uid `10001`) and includes a temp directory for staging (compose sets `TMPDIR=/app/data/tmp` so index publish is not cross-device from tmpfs):
+
+```bash
+mkdir -p data/tmp
+# chown as needed for your droplet (see Dockerfile uid 10001)
+```
+
 Production (embedder must be up):
 
 ```bash

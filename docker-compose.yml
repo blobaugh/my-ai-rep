@@ -72,6 +72,8 @@ services:
     environment:
       CONTENT_DIR: /content
       EMBED_BASE_URL: http://embedder:11434/v1
+      # Staging and publish both on the data volume (read_only + tmpfs /tmp breaks os.replace).
+      TMPDIR: /app/data/tmp
     volumes:
       - ${BENBOT_HOME:-.}/data:/app/data
       - ${BENBOT_HOME:-.}/content:/content:ro

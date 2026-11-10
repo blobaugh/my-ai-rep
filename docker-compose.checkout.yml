@@ -19,7 +19,7 @@ services:
     platform: linux/amd64
     volumes:
       - ${BENBOT_HOME:-.}/data:/app/data
-      - ${BENBOT_HOME:-.}/examples:/content:ro
+      - ${BENBOT_HOME:-.}/content:/content:ro
 
   web:
     build:
@@ -42,7 +42,7 @@ services:
     image: benbot/api:checkout
     volumes:
       - ${BENBOT_HOME:-.}/data:/app/data
-      - ${BENBOT_HOME:-.}/examples:/content:ro
+      - ${BENBOT_HOME:-.}/content:/content:ro
 
   backup:
     profiles: ["optional"]

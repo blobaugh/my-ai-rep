@@ -55,6 +55,7 @@ services:
     environment:
       CONTENT_DIR: /content
       EMBED_BASE_URL: http://embedder:11434/v1
+      TMPDIR: /app/data/tmp
 
   minio:
     # MinIO CE no longer publishes pullable images on Docker Hub / quay.io (2026).
