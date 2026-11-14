@@ -19,7 +19,6 @@ const hostPort = 8772;
 const embedPort = 8773;
 const allowedPort = 8774;
 const blockedPort = 8775;
-const samePort = 8776;
 const debugPort = 9335;
 const chatOrigin = `http://127.0.0.1:${chatPort}`;
 const widgetSrc = `${chatOrigin}/widget.js`;
@@ -108,36 +107,6 @@ async function shot(cdp, sessionId, name) {
   await writeFile(path.join(shots, name), Buffer.from(reply.result.data, "base64"));
 }
 
-async function readFrameStorage(cdp, sessionId) {
-  const started = Date.now();
-  let last = "none";
-  while (Date.now() - started < 4000) {
-    const tree = await cdp.send("Page.getFrameTree", {}, sessionId);
-    const child = tree.result?.frameTree?.childFrames?.[0]?.frame;
-    last = child ? child.url || "empty-url" : JSON.stringify(tree.result?.frameTree || null).slice(0, 240);
-    if (child && child.url && child.url !== "about:blank") {
-      const world = await cdp.send(
-        "Page.createIsolatedWorld",
-        { frameId: child.id, grantUniveralAccess: true },
-        sessionId,
-      );
-      const reply = await cdp.send(
-        "Runtime.evaluate",
-        {
-          expression: `localStorage.getItem("benbot.sessionId")`,
-          contextId: world.result.executionContextId,
-          returnByValue: true,
-        },
-        sessionId,
-      );
-      if (reply.result?.exceptionDetails) return "eval-error";
-      return reply.result?.result?.value ?? null;
-    }
-    await delay(100);
-  }
-  return `unread:${last}`;
-}
-
 async function iframeEval(cdp, urlPart, expression) {
   const listed = await cdp.send("Target.getTargets");
   const target = (listed.result.targetInfos || []).find(
@@ -172,11 +141,6 @@ async function main() {
       response.end(heavy);
       return;
     }
-    if (url.startsWith("/cross")) {
-      response.writeHead(200, { "content-type": "text/html" });
-      response.end(framePage(`${chatOrigin}/embed`));
-      return;
-    }
     response.writeHead(404);
     response.end();
   });
@@ -196,10 +160,6 @@ async function main() {
     response.writeHead(200, { "content-type": "text/html" });
     response.end(framePage(`http://127.0.0.1:${embedPort}/embed`));
   });
-  const same = await listen(samePort, "127.0.0.1", (request, response) => {
-    response.writeHead(200, { "content-type": "text/html" });
-    response.end(framePage(`${chatOrigin}/embed`));
-  });
   const browser = spawn(
     chrome,
     [
@@ -214,7 +174,7 @@ async function main() {
     ],
     { stdio: "ignore" },
   );
-  const servers = [host, embed, allowed, blocked, same];
+  const servers = [host, embed, allowed, blocked];
   try {
     const started = Date.now();
     let healthy = false;
@@ -278,20 +238,53 @@ async function main() {
       page.sessionId,
       `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector("iframe")?.src || ""`,
     );
-    assert(String(src).endsWith("/embed"), src);
+    assert(String(src).includes("/embed"), src);
+    assert(String(src).includes("widget=1"), `expected widget embed mode: ${src}`);
     let label = "";
+    let frameState = null;
     const labelStarted = Date.now();
     while (Date.now() - labelStarted < 8000) {
-      label = await iframeEval(
+      frameState = await iframeEval(
         cdp,
         `${chatOrigin}/embed`,
-        `document.querySelector("#ai-label")?.textContent || ""`,
+        `({
+          label: document.querySelector("#ai-label")?.textContent || "",
+          widget: document.body.classList.contains("widget-frame"),
+          labelHidden: document.querySelector("#ai-label")?.hidden === true,
+        })`,
       );
-      if (String(label).includes("AI")) break;
+      label = frameState?.label || "";
+      if (String(label).includes("AI") && frameState?.widget) break;
       await delay(100);
     }
     assert(String(label).includes("AI"), "embed chat did not load");
+    assert(frameState?.widget === true, "embed did not enter widget-frame mode");
+    assert(frameState?.labelHidden === true, "duplicate AI label stayed visible in the iframe");
+    const header = await evaluate(
+      cdp,
+      page.sessionId,
+      `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".bar p")?.textContent || ""`,
+    );
+    assert(String(header).includes("AI") || String(header).length > 0, `widget header empty: ${header}`);
+    const icon = await evaluate(
+      cdp,
+      page.sessionId,
+      `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".bubble svg.icon") !== null`,
+    );
+    assert(icon === true, "launcher is missing the chat icon");
     await shot(cdp, page.sessionId, "widget-open-1280x800.png");
+    await cdp.send(
+      "Emulation.setEmulatedMedia",
+      { features: [{ name: "prefers-color-scheme", value: "dark" }] },
+      page.sessionId,
+    );
+    await delay(200);
+    await shot(cdp, page.sessionId, "widget-open-dark-1280x800.png");
+    await cdp.send(
+      "Emulation.setEmulatedMedia",
+      { features: [{ name: "prefers-color-scheme", value: "light" }] },
+      page.sessionId,
+    );
     await evaluate(
       cdp,
       page.sessionId,
@@ -411,43 +404,6 @@ async function main() {
     assert(logs.some((line) => line.includes("frame-ancestors")), `blocked page was not refused: ${logs.join(" | ")}`);
     await cdp.send("Target.closeTarget", { targetId: badFrame.targetId });
 
-    const direct = await openPage(cdp, `${chatOrigin}/embed`);
-    await waitUntil(cdp, direct.sessionId, `(document.querySelector("#ai-label")?.textContent || "").includes("AI")`);
-    await evaluate(cdp, direct.sessionId, `localStorage.setItem("benbot.sessionId", "first-party-id")`);
-    await cdp.send("Target.closeTarget", { targetId: direct.targetId });
-
-    const samePage = await openPage(cdp, `http://127.0.0.1:${samePort}/`);
-    const sameValue = await readFrameStorage(cdp, samePage.sessionId);
-    await cdp.send("Target.closeTarget", { targetId: samePage.targetId });
-
-    const crossPage = await openPage(cdp, `http://localhost:${hostPort}/cross`);
-    await waitUntil(cdp, crossPage.sessionId, `document.querySelector("iframe") !== null`);
-    let crossValue = "no-target";
-    const crossStarted = Date.now();
-    while (Date.now() - crossStarted < 4000) {
-      const listed = await cdp.send("Target.getTargets");
-      const target = (listed.result.targetInfos || []).find(
-        (item) => String(item.url).includes(`${chatOrigin}/embed`),
-      );
-      if (!target) {
-        await delay(100);
-        continue;
-      }
-      const attached = await cdp.send("Target.attachToTarget", {
-        targetId: target.targetId,
-        flatten: true,
-      });
-      crossValue = await evaluate(
-        cdp,
-        attached.result.sessionId,
-        `localStorage.getItem("benbot.sessionId")`,
-      );
-      if (crossValue === null) crossValue = "empty";
-      break;
-    }
-    await cdp.send("Target.closeTarget", { targetId: crossPage.targetId });
-
-    process.stdout.write(`storage same-site=${JSON.stringify(sameValue)} cross-site=${JSON.stringify(crossValue)}\n`);
     process.stdout.write("widget smoke ok\n");
   } finally {
     mock.kill("SIGKILL");

@@ -207,6 +207,7 @@ Every setting below is loaded by `src/config.py`. Blank usually means â€œunsetâ€
 | AI_LABEL | unset | Override AI label text |
 | OPENING_MESSAGE | unset | Override opening message |
 | LOGGING_NOTICE | unset | Override logging notice |
+| STARTER_QUESTIONS | unset | Pipe-separated starter chips on the chat page (blank means none) |
 | FRAME_ANCESTORS | unset | Space-separated origins allowed to frame `/embed` |
 
 ### Logging and verification

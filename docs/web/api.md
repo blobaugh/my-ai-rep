@@ -63,15 +63,19 @@ curl -s localhost:8000/api/config
 ```json
 {
   "ai_label": "Bot is an AI that speaks for the person I represent.",
-  "opening_message": "Hi, I'm Bot, an AI that speaks for the person I represent. Ask me anything about them.",
+  "opening_message": "Hi, I'm Bot. Ask me anything about the person I represent.",
   "logging_notice": "Conversations are logged and kept to improve the bot, and messages are processed by AI model providers. Please don't share personal information.",
+  "logging_notice_short": "Conversations are logged. Please don't share personal information.",
+  "bot_name": "Bot",
+  "composer_placeholder": "Ask a question…",
+  "starter_questions": [],
   "max_message_chars": 1000,
   "session_max_messages": 50,
   "contact_url": ""
 }
 ```
 
-The label and opening are built from `BOT_NAME` and `HUMAN_NAME` unless `AI_LABEL` or `OPENING_MESSAGE` is set. The notice is the sentence above unless `LOGGING_NOTICE` is set. The wording always says this is an AI.
+The label and opening are built from `BOT_NAME` and `HUMAN_NAME` unless `AI_LABEL` or `OPENING_MESSAGE` is set. The notice is the long sentence above unless `LOGGING_NOTICE` is set; the short line is for the compact UI summary. `starter_questions` comes from `STARTER_QUESTIONS` (pipe- or newline-separated; blank means none). The wording always says this is an AI.
 
 ## GET /api/health
 

@@ -157,6 +157,102 @@ async function sendChat(cdp, sessionId, message) {
   );
 }
 
+const LONG_QUESTION =
+  "Tell me about your work history and the projects you are most proud of, with as much detail as you can.";
+
+const LAYOUT = `(() => {
+  const rect = (el) => el.getBoundingClientRect();
+  const list = document.querySelector("#messages");
+  const items = list.querySelectorAll(".msg");
+  const last = rect(items[items.length - 1]);
+  const box = rect(list);
+  const controls = ["#ai-label", "#new-chat", "#about summary", "#message", "#send"].map((sel) => {
+    const r = rect(document.querySelector(sel));
+    return { sel, left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+  });
+  const overlaps = [];
+  for (let i = 0; i < controls.length; i++) {
+    for (let j = i + 1; j < controls.length; j++) {
+      const a = controls[i];
+      const b = controls[j];
+      if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) {
+        overlaps.push(a.sel + " x " + b.sel);
+      }
+    }
+  }
+  return {
+    pageGrew: document.documentElement.scrollHeight > innerHeight + 1,
+    composerVisible: rect(document.querySelector("#composer")).bottom <= innerHeight + 1,
+    lastVisible: last.bottom <= box.bottom + 1 && last.top >= box.top - 1,
+    listScrolls: list.scrollHeight > list.clientHeight,
+    overlaps,
+  };
+})()`;
+
+async function checkLayout(cdp, url, width, height) {
+  const opened = await openPage(cdp, url);
+  await cdp.send(
+    "Emulation.setDeviceMetricsOverride",
+    { width, height, deviceScaleFactor: 1, mobile: width < 800 },
+    opened.sessionId,
+  );
+  const ready = `(document.querySelector("#ai-label")?.textContent || "").includes("AI")`;
+  await waitUntil(cdp, opened.sessionId, ready);
+  const where = `${url} ${width}x${height}`;
+  const empty = await evaluate(cdp, opened.sessionId, LAYOUT);
+  assert(empty.overlaps.length === 0, `${where} overlaps: ${empty.overlaps.join(", ")}`);
+  for (let i = 0; i < 10; i++) {
+    await sendChat(cdp, opened.sessionId, i % 2 ? LONG_QUESTION : `Question ${i}`);
+  }
+  const full = await evaluate(cdp, opened.sessionId, LAYOUT);
+  assert(full.pageGrew === false, `${where} page grew instead of the list scrolling`);
+  assert(full.composerVisible, `${where} composer is off screen`);
+  assert(full.lastVisible, `${where} latest reply is off screen`);
+  assert(full.listScrolls, `${where} message list did not overflow (test is not testing scrolling)`);
+  assert(full.overlaps.length === 0, `${where} overlaps: ${full.overlaps.join(", ")}`);
+
+  await cdp.send(
+    "Fetch.enable",
+    { patterns: [{ urlPattern: "*://*/api/chat", requestStage: "Request" }] },
+    opened.sessionId,
+  );
+  const paused = cdp.waitEvent("Fetch.requestPaused");
+  await evaluate(
+    cdp,
+    opened.sessionId,
+    `(() => {
+      document.querySelector("#message").value = "Scrolled up while waiting";
+      document.querySelector("#composer").requestSubmit();
+      return true;
+    })()`,
+  );
+  const request = await paused;
+  await evaluate(cdp, opened.sessionId, `document.querySelector("#messages").scrollTop = 0`);
+  await cdp.send("Fetch.continueRequest", { requestId: request.requestId }, opened.sessionId);
+  await waitUntil(
+    cdp,
+    opened.sessionId,
+    `document.querySelector(".typing") === null && !document.querySelector("#send").disabled`,
+  );
+  await cdp.send("Fetch.disable", {}, opened.sessionId);
+  const kept = await evaluate(cdp, opened.sessionId, `document.querySelector("#messages").scrollTop`);
+  assert(kept < 40, `${where} reply yanked a reader who scrolled up (scrollTop ${kept})`);
+
+  const reloaded = cdp.waitEvent("Page.loadEventFired");
+  await cdp.send("Page.reload", {}, opened.sessionId);
+  await reloaded;
+  await waitUntil(cdp, opened.sessionId, ready);
+  const after = await evaluate(
+    cdp,
+    opened.sessionId,
+    `({ count: document.querySelectorAll(".msg").length, id: document.querySelector("#session-id").textContent })`,
+  );
+  assert(after.count === 1, `${where} reload kept ${after.count} messages`);
+  assert(after.id === "none yet", `${where} reload resumed session ${after.id}`);
+  await cdp.send("Target.closeTarget", { targetId: opened.targetId });
+  process.stdout.write(`layout ok ${where}\n`);
+}
+
 async function shot(cdp, sessionId, file) {
   const reply = await cdp.send("Page.captureScreenshot", { format: "png" }, sessionId);
   const bytes = Buffer.from(reply.result.data, "base64");
@@ -204,6 +300,12 @@ async function main() {
         `["#messages","#message","#new-chat","#logging-notice","#copy-id"].every((sel) => document.querySelector(sel))`,
       );
       assert(ids === true, `${page} missing a control`);
+      const favicon = await evaluate(
+        cdp,
+        opened.sessionId,
+        `document.querySelector('link[rel="icon"]')?.getAttribute("href") || ""`,
+      );
+      assert(String(favicon).includes("favicon"), `${page} missing favicon link`);
       await cdp.send("Target.closeTarget", { targetId: opened.targetId });
     }
 
@@ -212,6 +314,36 @@ async function main() {
       cdp,
       page.sessionId,
       `(document.querySelector("#ai-label")?.textContent || "").includes("AI")`,
+    );
+    const starterCount = await evaluate(
+      cdp,
+      page.sessionId,
+      `document.querySelectorAll(".starters button").length`,
+    );
+    assert(starterCount >= 1, `expected starter chips, got ${starterCount}`);
+    const noticeKind = await evaluate(
+      cdp,
+      page.sessionId,
+      `document.querySelector("#logging-notice")?.tagName || ""`,
+    );
+    assert(noticeKind === "DETAILS", `logging notice should remain a details element inside #messages: ${noticeKind}`);
+    await evaluate(cdp, page.sessionId, `document.querySelector(".starters button").click()`);
+    await waitUntil(
+      cdp,
+      page.sessionId,
+      `document.querySelector(".typing") === null && document.querySelectorAll(".msg.visitor").length >= 1`,
+    );
+    const startersGone = await evaluate(
+      cdp,
+      page.sessionId,
+      `document.querySelector(".starters") === null`,
+    );
+    assert(startersGone === true, "starter chips stayed after the first message");
+    await evaluate(cdp, page.sessionId, `document.querySelector("#new-chat").click()`);
+    await waitUntil(
+      cdp,
+      page.sessionId,
+      `document.querySelectorAll(".msg.visitor").length === 0 && document.querySelectorAll(".starters button").length >= 1`,
     );
 
     const overflow = [];
@@ -257,18 +389,32 @@ async function main() {
     );
 
     await sendChat(cdp, page.sessionId, "!down");
-    const kept = await evaluate(cdp, page.sessionId, `document.querySelector("#message").value`);
-    assert(kept === "!down", `draft not kept: ${kept}`);
+    const cleared = await evaluate(cdp, page.sessionId, `document.querySelector("#message").value`);
+    assert(cleared === "", `draft should be cleared: ${cleared}`);
     const botTexts = `[...document.querySelectorAll(".msg.bot p")].map((node) => node.textContent)`;
     const downTexts = await evaluate(cdp, page.sessionId, botTexts);
     assert(
       downTexts.filter((text) => text.includes("afterburners")).length === 1,
       `expected one afterburners bubble: ${JSON.stringify(downTexts)}`,
     );
-    assert(
-      downTexts[downTexts.length - 1].includes("not available"),
-      `last reply after both attempts: ${downTexts[downTexts.length - 1]}`,
+    const downNotice = await evaluate(
+      cdp,
+      page.sessionId,
+      `document.querySelector(".system-notice p")?.textContent || ""`,
     );
+    assert(downNotice.includes("not available"), `expected unavailable notice: ${downNotice}`);
+    const downRetry = await evaluate(
+      cdp,
+      page.sessionId,
+      `document.querySelector(".system-notice .retry")?.textContent || ""`,
+    );
+    assert(downRetry === "Retry", `missing Retry on unavailable: ${downRetry}`);
+    const typingHidden = await evaluate(
+      cdp,
+      page.sessionId,
+      `document.querySelector(".typing")?.getAttribute("aria-hidden") || "gone"`,
+    );
+    assert(typingHidden === "gone", `typing left in the log: ${typingHidden}`);
 
     await evaluate(cdp, page.sessionId, `document.querySelector("#new-chat").click()`);
     await waitUntil(
@@ -297,9 +443,83 @@ async function main() {
     const restart = await evaluate(
       cdp,
       page.sessionId,
-      `document.querySelector(".restart")?.textContent || ""`,
+      `document.querySelector(".system-notice .restart")?.textContent || ""`,
     );
     assert(restart === "Start a new chat", restart);
+    assert(
+      (await evaluate(cdp, page.sessionId, `document.querySelector(".system-notice .retry")`)) === null,
+      "session_full should not offer Retry",
+    );
+
+    await evaluate(cdp, page.sessionId, `document.querySelector("#new-chat").click()`);
+    await waitUntil(
+      cdp,
+      page.sessionId,
+      `document.querySelectorAll(".msg.visitor").length === 0`,
+    );
+    await sendChat(cdp, page.sessionId, "!nearcap");
+    const hint = await evaluate(cdp, page.sessionId, `document.querySelector("#status")?.textContent || ""`);
+    assert(hint.includes("messages left"), `expected remaining hint: ${hint}`);
+
+    await evaluate(cdp, page.sessionId, `document.body.dataset.stillThinkingMs = "400"`);
+    await evaluate(cdp, page.sessionId, `document.body.dataset.requestTimeoutMs = "1200"`);
+    await cdp.send(
+      "Fetch.enable",
+      { patterns: [{ urlPattern: "*://*/api/chat", requestStage: "Request" }] },
+      page.sessionId,
+    );
+    const pausedWait = cdp.waitEvent("Fetch.requestPaused");
+    await evaluate(
+      cdp,
+      page.sessionId,
+      `(() => {
+        document.querySelector("#message").value = "wait-check";
+        document.querySelector("#composer").requestSubmit();
+        return true;
+      })()`,
+    );
+    const pausedReq = await pausedWait;
+    await waitUntil(
+      cdp,
+      page.sessionId,
+      `document.querySelector(".typing") !== null && document.querySelector("#send").getAttribute("aria-busy") === "true"`,
+    );
+    await delay(700);
+    const still = await evaluate(cdp, page.sessionId, `document.querySelector("#status")?.textContent || ""`);
+    assert(still.includes("Still thinking"), `expected still-thinking status: ${still}`);
+    await waitUntil(
+      cdp,
+      page.sessionId,
+      `document.querySelector(".system-notice .retry") !== null && document.querySelector(".typing") === null`,
+    );
+    const timeoutNotice = await evaluate(
+      cdp,
+      page.sessionId,
+      `document.querySelector(".system-notice p")?.textContent || ""`,
+    );
+    assert(timeoutNotice.includes("too long"), `expected timeout notice: ${timeoutNotice}`);
+    await cdp.send(
+      "Fetch.failRequest",
+      { requestId: pausedReq.requestId, errorReason: "Aborted" },
+      page.sessionId,
+    );
+    await cdp.send("Fetch.disable", {}, page.sessionId);
+    await evaluate(
+      cdp,
+      page.sessionId,
+      `(() => {
+        delete document.body.dataset.stillThinkingMs;
+        delete document.body.dataset.requestTimeoutMs;
+        return true;
+      })()`,
+    );
+
+    await evaluate(cdp, page.sessionId, `document.querySelector(".system-notice .retry").click()`);
+    await waitUntil(
+      cdp,
+      page.sessionId,
+      `document.querySelector(".typing") === null && [...document.querySelectorAll(".msg.bot p")].some((n) => n.textContent === "This is a mock reply.")`,
+    );
 
     const beforeKeys = await evaluate(
       cdp,
@@ -334,6 +554,17 @@ async function main() {
     );
 
     await cdp.send("Target.closeTarget", { targetId: page.targetId });
+
+    const base = `http://127.0.0.1:${mockPort}`;
+    for (const [url, width, height] of [
+      [`${base}/`, 375, 667],
+      [`${base}/`, 1280, 800],
+      [`${base}/`, 360, 640],
+      [`${base}/embed`, 380, 556],
+      [`${base}/embed`, 360, 640],
+    ]) {
+      await checkLayout(cdp, url, width, height);
+    }
 
     for (const [width, height] of sizes) {
       for (const state of states) {

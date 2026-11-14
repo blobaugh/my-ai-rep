@@ -94,6 +94,7 @@ class Settings:
     ai_label: str = ""
     opening_message: str = ""
     logging_notice: str = ""
+    starter_questions: tuple[str, ...] = ()
     frame_ancestors: tuple[str, ...] = ()
     api_host: str = "127.0.0.1"
     api_port: int = 8000
@@ -187,6 +188,7 @@ class Settings:
             "AI_LABEL": self.ai_label or "unset",
             "OPENING_MESSAGE": self.opening_message or "unset",
             "LOGGING_NOTICE": self.logging_notice or "unset",
+            "STARTER_QUESTIONS": "|".join(self.starter_questions) or "unset",
             "FRAME_ANCESTORS": " ".join(self.frame_ancestors) or "unset",
             "API_HOST": self.api_host,
             "API_PORT": self.api_port,
@@ -209,6 +211,7 @@ class Settings:
         """Unmasked canonical values. Used only as hash input, never printed."""
         data = {field.name: getattr(self, field.name) for field in fields(self)}
         data["topic_leak_words"] = list(data["topic_leak_words"])
+        data["starter_questions"] = list(data["starter_questions"])
         data["failover_on_http_status"] = list(data["failover_on_http_status"])
         data["frame_ancestors"] = list(data["frame_ancestors"])
         return data
@@ -437,6 +440,7 @@ def _parse_settings(data: Mapping[str, str]) -> Settings:
         ai_label=_str(data, "AI_LABEL", ""),
         opening_message=_str(data, "OPENING_MESSAGE", ""),
         logging_notice=_str(data, "LOGGING_NOTICE", ""),
+        starter_questions=_starter_questions(data),
         frame_ancestors=_frame_ancestors(data),
         api_host=_str(data, "API_HOST", "127.0.0.1"),
         api_port=_int(data, "API_PORT", 8000, minimum=1),
@@ -527,6 +531,24 @@ def _word_list(data: Mapping[str, str], name: str) -> tuple[str, ...]:
         seen.add(word)
         words.append(word)
     return tuple(words)
+
+
+def _starter_questions(data: Mapping[str, str]) -> tuple[str, ...]:
+    """Pipe- or newline-separated starter prompts. Blank means none. Cap at 6."""
+    name = "STARTER_QUESTIONS"
+    if name not in data or str(data[name]).strip() == "":
+        return ()
+    found: list[str] = []
+    seen: set[str] = set()
+    for part in str(data[name]).replace("\n", "|").split("|"):
+        question = part.strip()
+        if not question or question in seen:
+            continue
+        seen.add(question)
+        found.append(question)
+        if len(found) >= 6:
+            break
+    return tuple(found)
 
 
 def _connection_group(

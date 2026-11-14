@@ -6,12 +6,20 @@ import {
   EMPTY_MESSAGE,
   NETWORK_MESSAGE,
   NEW_CONVERSATION,
-  SESSION_KEY,
+  TIMEOUT_MESSAGE,
   TOO_LONG_MESSAGE,
   WARMING_UP_MESSAGE,
-  createSessionStore,
+  compactNotice,
+  counterText,
   fillText,
   interpretChat,
+  isNearBottom,
+  isRetryable,
+  normalizeStarters,
+  outcomeStyle,
+  relativeTime,
+  remainingHint,
+  revealScrollTop,
   safeHttpUrl,
   shouldWarmRetry,
   stripControls,
@@ -59,8 +67,10 @@ test("interpretChat maps each API status", () => {
 
   for (const status of ["unavailable", "busy", "daily_limit", "error", "invalid"]) {
     const row = interpretChat("s", 500, { status, reply: status, session_id: "s" });
-    assert.equal(row.keepDraft, true, status);
+    assert.equal(row.keepDraft, false, status);
     assert.equal(row.restart, false, status);
+    assert.equal(outcomeStyle(status), "notice", status);
+    assert.equal(isRetryable(status), true, status);
   }
 
   const full = interpretChat("s", 409, {
@@ -70,12 +80,57 @@ test("interpretChat maps each API status", () => {
   });
   assert.equal(full.restart, true);
   assert.equal(full.keepDraft, false);
+  assert.equal(outcomeStyle("session_full"), "notice");
+  assert.equal(isRetryable("session_full"), false);
 
   const down = interpretChat("s", 0, null);
   assert.equal(down.kind, "network");
   assert.equal(down.reply, NETWORK_MESSAGE);
-  assert.equal(down.keepDraft, true);
+  assert.equal(down.keepDraft, false);
   assert.equal(down.sessionId, "s");
+  assert.equal(isRetryable("timeout"), true);
+  assert.equal(TIMEOUT_MESSAGE.includes("too long"), true);
+});
+
+test("remainingHint warns only near the session cap", () => {
+  assert.equal(remainingHint(null), "");
+  assert.equal(remainingHint({ messages_used: 10, messages_max: 50 }), "");
+  assert.equal(remainingHint({ messages_used: 45, messages_max: 50 }), "5 messages left in this chat.");
+  assert.equal(remainingHint({ messages_used: 49, messages_max: 50 }), "1 message left in this chat.");
+  assert.equal(remainingHint({ messages_used: 50, messages_max: 50 }), "No messages left in this chat.");
+  assert.equal(outcomeStyle("ok"), "reply");
+});
+
+test("counterText appears only near the limit", () => {
+  assert.equal(counterText(100, 1000), "");
+  assert.equal(counterText(800, 1000), "800 / 1000");
+  assert.equal(counterText(1000, 1000), "1000 / 1000");
+});
+
+test("normalizeStarters trims, dedupes, and caps", () => {
+  assert.deepEqual(normalizeStarters(null), []);
+  assert.deepEqual(
+    normalizeStarters(["  One ", "Two", "One", "", 3, "Three", "Four", "Five", "Six", "Seven"]),
+    ["One", "Two", "Three", "Four", "Five", "Six"],
+  );
+});
+
+test("compactNotice keeps a short summary with optional detail", () => {
+  assert.deepEqual(compactNotice(""), { summary: "", detail: "" });
+  assert.deepEqual(compactNotice("Only one line."), {
+    summary: "Only one line.",
+    detail: "",
+  });
+  assert.deepEqual(compactNotice("Full notice text.", "Short notice."), {
+    summary: "Short notice.",
+    detail: "Full notice text.",
+  });
+});
+
+test("relativeTime labels recent moments", () => {
+  const now = 1_000_000;
+  assert.equal(relativeTime(now - 1000, now), "just now");
+  assert.equal(relativeTime(now - 120_000, now), "2 minutes ago");
 });
 
 test("only an unavailable model earns the warm-up retry", () => {
@@ -94,44 +149,24 @@ test("only an unavailable model earns the warm-up retry", () => {
   assert.equal(shouldWarmRetry(null), false);
 });
 
-test("session store uses one key and survives a blocked storage", () => {
-  const saved = new Map();
-  const storage = {
-    getItem(key) {
-      return saved.has(key) ? saved.get(key) : null;
-    },
-    setItem(key, value) {
-      saved.set(key, value);
-    },
-    removeItem(key) {
-      saved.delete(key);
-    },
-  };
-  const store = createSessionStore(storage);
-  assert.equal(store.load(), "");
-  store.save("abc");
-  assert.equal(saved.get(SESSION_KEY), "abc");
-  assert.deepEqual([...saved.keys()], [SESSION_KEY]);
-  assert.equal(store.load(), "abc");
-  store.clear();
-  assert.equal(saved.has(SESSION_KEY), false);
-  assert.equal(store.load(), "");
+test("isNearBottom allows a small slack and rejects a reader scrolled up", () => {
+  assert.equal(isNearBottom(600, 400, 1000), true);
+  assert.equal(isNearBottom(530, 400, 1000), true);
+  assert.equal(isNearBottom(500, 400, 1000), false);
+  assert.equal(isNearBottom(0, 400, 1000), false);
+  assert.equal(isNearBottom(0, 400, 300), true);
+});
 
-  const blocked = createSessionStore({
-    getItem() {
-      throw new Error("blocked");
-    },
-    setItem() {
-      throw new Error("blocked");
-    },
-    removeItem() {
-      throw new Error("blocked");
-    },
-  });
-  blocked.save("mem");
-  assert.equal(blocked.load(), "mem");
-  blocked.clear();
-  assert.equal(blocked.load(), "");
+test("revealScrollTop goes to the end for a short item and to the top of a long one", () => {
+  assert.equal(revealScrollTop(900, 60, 400, 1000), 600);
+  assert.equal(revealScrollTop(500, 500, 400, 1000), 492);
+  assert.equal(revealScrollTop(4, 900, 400, 1000), 0);
+  assert.equal(revealScrollTop(0, 50, 400, 300), 0);
+});
+
+test("the page does not persist the session id", () => {
+  const chat = readFileSync(new URL("./chat.js", import.meta.url), "utf8");
+  assert.equal(/localStorage|sessionStorage|document\.cookie/.test(chat), false);
 });
 
 test("safeHttpUrl allows http(s) only", () => {

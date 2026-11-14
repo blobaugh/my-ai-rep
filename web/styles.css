@@ -36,7 +36,8 @@ html, body {
 }
 
 body.page {
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -44,23 +45,73 @@ body.page {
   font: 17px/1.45 system-ui, sans-serif;
 }
 
-body.embed {
-  height: 100dvh;
-  min-height: 100dvh;
-}
-
-.top, .about, .chat {
+.top, .chat {
   width: min(40rem, 100%);
   margin: 0 auto;
   padding-left: 16px;
   padding-right: 16px;
 }
 
-.top { padding-top: 16px; }
+.top {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 8px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
 
 .ai-label {
+  flex: 1 1 16rem;
   margin: 0;
   font-weight: 700;
+}
+
+body.widget-frame .ai-label {
+  display: none;
+}
+
+body.widget-frame .top {
+  justify-content: flex-end;
+}
+
+.actions {
+  flex: none;
+  display: flex;
+  gap: 8px;
+}
+
+.about summary {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  list-style: none;
+}
+
+.about summary::-webkit-details-marker { display: none; }
+
+.about[open] summary { border-color: var(--focus); }
+
+.about-panel {
+  position: absolute;
+  top: calc(100% - 4px);
+  right: 16px;
+  width: min(22rem, calc(100% - 32px));
+  max-height: 60dvh;
+  overflow-y: auto;
+  padding: 4px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
 }
 
 .chat {
@@ -72,17 +123,50 @@ body.embed {
   padding-bottom: 12px;
 }
 
+.composer, .status { flex: none; }
+
 .notice {
+  flex: none;
   margin: 0;
-  padding: 10px 12px;
+  padding: 8px 12px;
   background: var(--notice-bg);
   color: var(--muted);
   border-radius: 10px;
 }
 
+.notice summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.notice summary::-webkit-details-marker { display: none; }
+
+.notice:not(.notice-static) summary::after {
+  content: " More";
+  font-weight: 600;
+  color: var(--text);
+}
+
+.notice[open]:not(.notice-static) summary::after {
+  content: " Less";
+}
+
+.notice.notice-static summary {
+  cursor: default;
+}
+
+.notice-detail {
+  margin: 8px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
 .messages {
+  position: relative;
   flex: 1;
-  min-height: 8rem;
+  min-height: 5rem;
   overflow-x: hidden;
   overflow-y: auto;
   display: flex;
@@ -92,7 +176,7 @@ body.embed {
 }
 
 .msg {
-  max-width: 100%;
+  max-width: min(80%, 32rem);
   padding: 10px 12px;
   border-radius: 12px;
   box-shadow: var(--shadow);
@@ -102,6 +186,14 @@ body.embed {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.msg-meta {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--muted);
 }
 
 .msg.bot {
@@ -117,6 +209,26 @@ body.embed {
   color: var(--visitor-text);
 }
 
+.msg.visitor .msg-meta { color: rgb(244 255 248 / 75%); }
+
+.starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.starters button {
+  max-width: 100%;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  text-align: left;
+  white-space: normal;
+}
+
 .session-note {
   margin: 0;
   text-align: center;
@@ -124,10 +236,99 @@ body.embed {
   font-size: 0.9rem;
 }
 
+.system-notice {
+  align-self: center;
+  max-width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed var(--line);
+  background: var(--notice-bg);
+  color: var(--muted);
+  text-align: center;
+}
+
+.system-notice p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.system-notice .retry,
+.system-notice .restart { margin-top: 8px; }
+
+.msg.typing {
+  display: flex;
+  align-items: center;
+  min-height: 2.5rem;
+  box-shadow: none;
+}
+
+.typing-dots {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.typing-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: 0.35;
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing-dot {
+  0%, 80%, 100% { opacity: 0.35; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-dots span { animation: none; opacity: 0.7; }
+  #send.busy::after { animation: none; }
+}
+
+#send.busy {
+  position: relative;
+  color: transparent;
+}
+
+#send.busy::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid rgb(244 255 248 / 35%);
+  border-top-color: var(--visitor-text);
+  border-radius: 50%;
+  animation: send-spin 0.8s linear infinite;
+}
+
+@keyframes send-spin {
+  to { transform: rotate(360deg); }
+}
+
 .composer {
   display: flex;
   gap: 8px;
-  align-items: stretch;
+  align-items: flex-end;
+}
+
+.composer-fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.char-count {
+  margin: 0;
+  min-height: 1.1em;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: right;
 }
 
 textarea, button, summary {
@@ -136,15 +337,17 @@ textarea, button, summary {
 }
 
 textarea {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   min-height: 44px;
-  max-height: 8rem;
+  max-height: 9.6rem;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface);
-  resize: vertical;
+  resize: none;
+  overflow-y: auto;
+  field-sizing: content;
 }
 
 button, summary {
@@ -177,13 +380,6 @@ button:disabled {
   color: var(--muted);
 }
 
-.about {
-  padding-bottom: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 .session-row {
   display: flex;
   flex-wrap: wrap;
@@ -212,9 +408,4 @@ code {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-@media (max-width: 390px) {
-  .composer { flex-direction: column; }
-  #send { width: 100%; }
 }

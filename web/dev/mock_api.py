@@ -11,6 +11,8 @@ Magic messages, matched after the same control-character strip as the API:
 - !bad   invalid 400
 - !expire a new session id
 - !xss  a reply that must be shown as text
+- !slow waits ~10s then ok (manual wait-state check)
+- !nearcap ok with messages_used near the session max
 - anything else  ok 200
 """
 
@@ -18,6 +20,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -29,14 +32,21 @@ WARMING: set[str] = set()
 
 CONFIG: dict[str, Any] = {
     "ai_label": "Bot is an AI that speaks for the person I represent.",
-    "opening_message": (
-        "Hi, I'm Bot, an AI that speaks for the person I represent. "
-        "Ask me anything about them."
-    ),
+    "opening_message": "Hi, I'm Bot. Ask me anything about the person I represent.",
     "logging_notice": (
         "Conversations are logged and kept to improve the bot, and messages "
         "are processed by AI model providers. Please don't share personal information."
     ),
+    "logging_notice_short": (
+        "Conversations are logged. Please don't share personal information."
+    ),
+    "bot_name": "Bot",
+    "composer_placeholder": "Ask a question…",
+    "starter_questions": [
+        "What kind of work do you do?",
+        "What tools do you use?",
+        "How do you help teams?",
+    ],
     "max_message_chars": 1000,
     "session_max_messages": 50,
     "contact_url": "https://example.com/contact",
@@ -88,6 +98,19 @@ def chat_result(message: str, session_id: str | None) -> tuple[int, dict[str, An
         if nxt == current:
             nxt = "minted-session-b"
         return _body(200, "ok", "This reply is in a new conversation.", nxt)
+    if cleaned == "!slow":
+        time.sleep(10)
+        return _body(200, "ok", "Slow reply finished.", current or "slow-session")
+    if cleaned == "!nearcap":
+        maximum = int(CONFIG["session_max_messages"])
+        return _body(
+            200,
+            "ok",
+            "This is a mock reply near the session cap.",
+            current or "nearcap-session",
+            used=maximum - 3,
+            maximum=maximum,
+        )
     return _body(200, "ok", "This is a mock reply.", current or "mock-session")
 
 
@@ -96,10 +119,17 @@ def _body(
     status: str,
     reply: str,
     session_id: str | None,
+    *,
+    used: int | None = None,
+    maximum: int | None = None,
 ) -> tuple[int, dict[str, Any]]:
     usage = None
     if session_id:
-        usage = {"messages_used": 1, "messages_max": int(CONFIG["session_max_messages"])}
+        cap = int(CONFIG["session_max_messages"]) if maximum is None else maximum
+        usage = {
+            "messages_used": 1 if used is None else used,
+            "messages_max": cap,
+        }
     return http_status, {
         "session_id": session_id,
         "reply": reply,
@@ -182,6 +212,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("content-type", "application/json; charset=utf-8")
         self.send_header("content-length", str(len(data)))
         self.send_header("cache-control", "no-store")
+        # Widget title fetch is cross-origin from the host page.
+        if self.path.startswith("/api/config"):
+            self.send_header("access-control-allow-origin", "*")
         self.end_headers()
         self.wfile.write(data)
 

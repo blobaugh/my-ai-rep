@@ -8,6 +8,10 @@ LOGGING_NOTICE = (
     "Conversations are logged and kept to improve the bot, and messages "
     "are processed by AI model providers. Please don't share personal information."
 )
+LOGGING_NOTICE_SHORT = (
+    "Conversations are logged. Please don't share personal information."
+)
+COMPOSER_PLACEHOLDER = "Ask a question…"
 EMPTY_MESSAGE = "Please enter a message."
 TOO_LONG = "That message is too long. Please shorten it."
 TOO_LARGE = "That request is too large."
@@ -39,14 +43,19 @@ def public_config(settings: Settings) -> dict[str, object]:
     human = _human_label(settings)
     bot = settings.bot_name.strip() or "Bot"
     label = settings.ai_label or f"{bot} is an AI that speaks for {human}."
+    # Keep the AI disclosure in the label; the greeting stays short (BENBOT-48).
     opening = settings.opening_message or (
-        f"Hi, I'm {bot}, an AI that speaks for {human}. Ask me anything about them."
+        f"Hi, I'm {bot}. Ask me anything about {human}."
     )
     notice = settings.logging_notice or LOGGING_NOTICE
     return {
         "ai_label": label,
         "opening_message": opening,
         "logging_notice": notice,
+        "logging_notice_short": LOGGING_NOTICE_SHORT,
+        "bot_name": bot,
+        "composer_placeholder": COMPOSER_PLACEHOLDER,
+        "starter_questions": list(settings.starter_questions),
         "max_message_chars": settings.message_max_chars,
         "session_max_messages": settings.session_max_messages,
         "contact_url": settings.contact_url,

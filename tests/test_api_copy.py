@@ -2,8 +2,33 @@
 
 from __future__ import annotations
 
-from src.api.copy import daily_limit_message
+from src.api.copy import daily_limit_message, public_config
+from src.config import load_settings
 from tests.test_api import _settings
+
+
+def test_public_config_exposes_starters_and_short_greeting() -> None:
+    settings = load_settings(
+        environ={
+            "BOT_NAME": "AdaBot",
+            "HUMAN_NAME": "Ada",
+            "STARTER_QUESTIONS": "What do you do?|What tools do you use?|What do you do?",
+        }
+    )
+    payload = public_config(settings)
+    assert payload["bot_name"] == "AdaBot"
+    assert "AdaBot" in str(payload["opening_message"])
+    assert "an AI that speaks for" not in str(payload["opening_message"])
+    assert "AI" in str(payload["ai_label"])
+    assert payload["starter_questions"] == ["What do you do?", "What tools do you use?"]
+    assert payload["logging_notice_short"]
+    assert str(payload["logging_notice_short"]) != str(payload["logging_notice"])
+
+
+def test_blank_starter_questions_means_none() -> None:
+    settings = load_settings(environ={"STARTER_QUESTIONS": ""})
+    assert settings.starter_questions == ()
+    assert public_config(settings)["starter_questions"] == []
 
 
 def test_daily_limit_uses_configured_human_name() -> None:

@@ -47,6 +47,12 @@ def test_xss_reply_is_literal_text() -> None:
     assert "<img" in body["reply"]
 
 
+def test_nearcap_reports_usage_near_the_limit() -> None:
+    status, body = mock_api.chat_result("!nearcap", "sess")
+    assert status == 200
+    assert body["session"]["messages_used"] == body["session"]["messages_max"] - 3
+
+
 def test_mock_source_stays_on_the_standard_library() -> None:
     tree = ast.parse((ROOT / "web" / "dev" / "mock_api.py").read_text(encoding="utf-8"))
     modules = set()
@@ -55,4 +61,13 @@ def test_mock_source_stays_on_the_standard_library() -> None:
             modules.update(alias.name.split(".")[0] for alias in node.names)
         if isinstance(node, ast.ImportFrom) and node.module:
             modules.add(node.module.split(".")[0])
-    assert modules <= {"__future__", "json", "sys", "http", "pathlib", "typing", "urllib"}
+    assert modules <= {
+        "__future__",
+        "json",
+        "sys",
+        "http",
+        "pathlib",
+        "typing",
+        "urllib",
+        "time",
+    }

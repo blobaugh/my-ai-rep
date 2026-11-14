@@ -11,25 +11,25 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
     location = / {
-        add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'none'; frame-ancestors 'none'" always;
+        add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'" always;
         try_files /index.html =404;
     }
 
     location = /embed {
-        add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'none'; frame-ancestors __FRAME_ANCESTORS__" always;
+        add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors __FRAME_ANCESTORS__" always;
         try_files /embed.html =404;
     }
 
     location = /widget.js {
         add_header Cache-Control "public, max-age=300" always;
-        add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'none'; frame-ancestors 'none'" always;
+        add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'" always;
         try_files /widget.js =404;
     }
 
 __API_PROXY_BLOCK__
 
     location / {
-        add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'none'; frame-ancestors 'none'" always;
+        add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'" always;
         try_files $uri =404;
     }
 }
