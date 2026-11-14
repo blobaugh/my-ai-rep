@@ -247,11 +247,15 @@ async function main() {
       frameState = await iframeEval(
         cdp,
         `${chatOrigin}/embed`,
-        `({
-          label: document.querySelector("#ai-label")?.textContent || "",
-          widget: document.body.classList.contains("widget-frame"),
-          labelHidden: document.querySelector("#ai-label")?.hidden === true,
-        })`,
+        `(() => {
+          const el = document.querySelector("#ai-label");
+          const box = el?.getBoundingClientRect();
+          return {
+            label: el?.textContent || "",
+            widget: document.body.classList.contains("widget-frame"),
+            labelVisuallyHidden: !!box && box.width <= 1 && box.height <= 1,
+          };
+        })()`,
       );
       label = frameState?.label || "";
       if (String(label).includes("AI") && frameState?.widget) break;
@@ -259,11 +263,11 @@ async function main() {
     }
     assert(String(label).includes("AI"), "embed chat did not load");
     assert(frameState?.widget === true, "embed did not enter widget-frame mode");
-    assert(frameState?.labelHidden === true, "duplicate AI label stayed visible in the iframe");
+    assert(frameState?.labelVisuallyHidden === true, "duplicate AI label stayed visible in the iframe");
     const header = await evaluate(
       cdp,
       page.sessionId,
-      `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".bar p")?.textContent || ""`,
+      `document.querySelector("[data-persona-chat-widget]").shadowRoot.querySelector(".bar h2")?.textContent || ""`,
     );
     assert(String(header).includes("AI") || String(header).length > 0, `widget header empty: ${header}`);
     const icon = await evaluate(

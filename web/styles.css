@@ -68,11 +68,21 @@ body.page {
 .ai-label {
   flex: 1 1 16rem;
   margin: 0;
+  font-size: inherit;
   font-weight: 700;
 }
 
 body.widget-frame .ai-label {
-  display: none;
+  /* Keep an accessible h1 for the embed document; chrome title is outside the iframe. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 body.widget-frame .top {
@@ -209,7 +219,7 @@ body.widget-frame .top {
   color: var(--visitor-text);
 }
 
-.msg.visitor .msg-meta { color: rgb(244 255 248 / 75%); }
+.msg.visitor .msg-meta { color: rgb(244 255 248 / 85%); }
 
 .starters {
   display: flex;

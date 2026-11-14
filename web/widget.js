@@ -156,11 +156,12 @@
       panel = doc.createElement("section");
       panel.className = "panel";
       panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-modal", "true");
       panel.setAttribute("aria-label", resolvedTitle);
       panel.hidden = true;
       var header = doc.createElement("div");
       header.className = "bar";
-      titleEl = doc.createElement("p");
+      titleEl = doc.createElement("h2");
       titleEl.textContent = resolvedTitle;
       var close = doc.createElement("button");
       close.type = "button";
@@ -176,6 +177,14 @@
       frame.src = origin + "/embed?widget=1";
       panel.append(header, frame);
       shadow.append(panel);
+    }
+
+    function focusInsidePanel() {
+      if (!panel || !frame) return;
+      var active = shadow.activeElement;
+      if (active === frame || (active && panel.contains(active))) return;
+      var close = panel.querySelector(".close");
+      (close || frame).focus();
     }
 
     function lockScroll() {
@@ -223,6 +232,11 @@
     doc.addEventListener("keydown", function (event) {
       if (event.key === "Escape" && open) setOpen(false);
     });
+    doc.addEventListener("focusin", function (event) {
+      if (!open || !panel) return;
+      if (host.contains(event.target)) return;
+      focusInsidePanel();
+    });
     root.addEventListener("resize", function () {
       if (!open || !panel) return;
       panel.classList.toggle("sheet", isSheet());
@@ -252,7 +266,7 @@
       ".panel.sheet{position:fixed;inset:0;width:100%;height:100dvh;border-radius:0;transform-origin:center;}",
       "@keyframes panel-in{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}",
       ".bar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:4px 8px 4px 12px;background:var(--bar-bg);color:var(--bar-text);}",
-      ".bar p{margin:0;font:700 15px/1.2 system-ui,sans-serif;overflow-wrap:anywhere;}",
+      ".bar h2{margin:0;font:700 15px/1.2 system-ui,sans-serif;overflow-wrap:anywhere;}",
       ".close{min-width:44px;min-height:44px;border:0;border-radius:10px;background:transparent;color:var(--bar-text);font:inherit;cursor:pointer;}",
       "iframe{flex:1;width:100%;border:0;background:var(--panel-bg);}",
       "@media (max-width:720px){.bubble:not(.labeled){width:48px;height:48px;}}",
