@@ -326,16 +326,19 @@ body.widget-frame .top {
 
 .composer {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.composer-row {
+  display: flex;
   gap: 8px;
   align-items: flex-end;
 }
 
-.composer-fields {
+.composer-row textarea {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
 .char-count {

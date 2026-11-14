@@ -44,11 +44,11 @@
     </div>
     <form id="composer" class="composer">
       <label class="visually-hidden" for="message">Message</label>
-      <div class="composer-fields">
+      <div class="composer-row">
         <textarea id="message" name="message" rows="1" placeholder="Ask a question…"></textarea>
-        <p id="char-count" class="char-count" aria-live="polite"></p>
+        <button id="send" type="submit">Send</button>
       </div>
-      <button id="send" type="submit">Send</button>
+      <p id="char-count" class="char-count" aria-live="polite"></p>
     </form>
     <p id="status" class="status" role="status"></p>
   </main>
