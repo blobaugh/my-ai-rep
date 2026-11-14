@@ -1,6 +1,7 @@
 :root {
   color-scheme: light dark;
   --bg: #f6f3ec;
+  --messages-bg: #faf8f2;
   --text: #1c1915;
   --muted: #3f3a34;
   --surface: #fffdf8;
@@ -15,6 +16,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #141311;
+    --messages-bg: #1c1a17;
     --text: #f3efe6;
     --muted: #ddd6c8;
     --surface: #2a2622;
@@ -182,7 +184,10 @@ body.widget-frame .top {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-bottom: 4px;
+  padding: 10px 10px 8px;
+  background: var(--messages-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
 }
 
 .msg {
